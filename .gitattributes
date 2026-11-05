@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.pdf binary
+*.docx binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.gif binary
+datasets/synthetic/** -text
