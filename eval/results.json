@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "dataset": "synthetic",
+    "candidates": 312,
+    "vacancies": 39,
+    "embedding_model": "intfloat/multilingual-e5-small",
+    "ocr": false,
+    "reference_date": "2026-10-01",
+    "read": 279,
+    "skipped": 33,
+    "skipped_reasons": [
+      "the PDF is a scan and OCR is not available"
+    ]
+  },
+  "extraction": {
+    "all": {
+      "cvs": 279,
+      "skills": {
+        "precision": 0.9976,
+        "recall": 0.9993,
+        "f1": 0.9984
+      },
+      "experience_months_mae": 0.4,
+      "experience_exact": 0.8853,
+      "skill_months_mae": 0.7,
+      "language_level_accuracy": 1.0,
+      "degree_accuracy": 1.0
+    },
+    "format:docx": {
+      "cvs": 73,
+      "skills": {
+        "precision": 0.9959,
+        "recall": 1.0,
+        "f1": 0.998
+      },
+      "experience_months_mae": 0.42,
+      "experience_exact": 0.9041,
+      "skill_months_mae": 1.2,
+      "language_level_accuracy": 1.0,
+      "degree_accuracy": 1.0
+    },
+    "format:pdf": {
+      "cvs": 206,
+      "skills": {
+        "precision": 0.9981,
+        "recall": 0.9991,
+        "f1": 0.9986
+      },
+      "experience_months_mae": 0.39,
+      "experience_exact": 0.8786,
+      "skill_months_mae": 0.52,
+      "language_level_accuracy": 1.0,
+      "degree_accuracy": 1.0
+    },
+    "language:en": {
+      "cvs": 113,
+      "skills": {
+        "precision": 0.9967,
+        "recall": 0.9983,
+        "f1": 0.9975
+      },
+      "experience_months_mae": 0.35,
+      "experience_exact": 0.9204,
+      "skill_months_mae": 0.5,
+      "language_level_accuracy": 1.0,
+      "degree_accuracy": 1.0
+    },
+    "language:ru": {
+      "cvs": 166,
+      "skills": {
+        "precision": 0.9982,
+        "recall": 1.0,
+        "f1": 0.9991
+      },
+      "experience_months_mae": 0.44,
+      "experience_exact": 0.8614,
+      "skill_months_mae": 0.83,
+      "language_level_accuracy": 1.0,
+      "degree_accuracy": 1.0
+    }
+  },
+  "parsing": {
+    "vacancies": 39,
+    "requirements": 262,
+    "exact": 1.0,
+    "count_matches": 1.0,
+    "fields": {
+      "kind": 1.0,
+      "must": 1.0,
+      "skills": 1.0,
+      "any_of": 1.0,
+      "years": 1.0,
+      "language": 1.0,
+      "degree": 1.0
+    }
+  },
+  "ranking": {
+    "methods": {
+      "clearhire": {
+        "ndcg@10": 0.9678,
+        "p@5": 0.8974,
+        "recall@20": 0.8905
+      },
+      "clearhire, true requirements": {
+        "ndcg@10": 0.9678,
+        "p@5": 0.8974,
+        "recall@20": 0.8905
+      },
+      "embeddings only": {
+        "ndcg@10": 0.5996,
+        "p@5": 0.6256,
+        "recall@20": 0.4226
+      },
+      "keyword (BM25)": {
+        "ndcg@10": 0.6566,
+        "p@5": 0.6462,
+        "recall@20": 0.5559
+      },
+      "perfect ranking (upper bound)": {
+        "ndcg@10": 1.0,
+        "p@5": 0.9179,
+        "recall@20": 0.9061
+      }
+    },
+    "qualified": {
+      "precision": 0.9966,
+      "recall": 0.9983,
+      "f1": 0.9974
+    },
+    "pairs": 10881,
+    "rank_pool_ms": 27.7
+  },
+  "fairness": {
+    "blind": {
+      "gender": {
+        "comparisons": 162,
+        "identical": 1.0,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0,
+        "gaps_changed": 0.0
+      },
+      "origin": {
+        "comparisons": 162,
+        "identical": 1.0,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0,
+        "gaps_changed": 0.0
+      },
+      "age": {
+        "comparisons": 162,
+        "identical": 1.0,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0,
+        "gaps_changed": 0.0
+      }
+    },
+    "open": {
+      "gender": {
+        "comparisons": 162,
+        "identical": 0.3395,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0047,
+        "gaps_changed": 0.0
+      },
+      "origin": {
+        "comparisons": 162,
+        "identical": 1.0,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0,
+        "gaps_changed": 0.0
+      },
+      "age": {
+        "comparisons": 162,
+        "identical": 1.0,
+        "max_score_delta": 0.0,
+        "max_semantic_delta": 0.0,
+        "gaps_changed": 0.0
+      }
+    },
+    "candidates": 54
+  },
+  "speed": {
+    "read_and_index_cv_ms_p50": 188.0,
+    "read_and_index_scan_ms_p50": null,
+    "rank_pool_ms": 27.7,
+    "pool_size": 279
+  }
+}

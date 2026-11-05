@@ -6,7 +6,10 @@ from clearhire.cv.dates import find_ranges, merged_months, months_between
 from clearhire.cv.languages import find_languages, parse_level
 from clearhire.cv.profile import detect_language, extract_profile
 from clearhire.cv.sections import split_sections
+from clearhire.ingest import TesseractOcr, read_document
 from clearhire.skills import Taxonomy
+from clearhire.synth.generate import make_candidates
+from clearhire.synth.render import write_cv
 from conftest import RUSSIAN_CV, TODAY
 
 
@@ -100,3 +103,18 @@ def test_profile_round_trips_through_json(taxonomy: Taxonomy) -> None:
     profile = extract_profile(RUSSIAN_CV, taxonomy, today=TODAY)
     restored = CandidateProfile.from_dict(RUSSIAN_CV, json.loads(json.dumps(profile.to_dict())))
     assert restored == profile
+
+
+@pytest.mark.ocr
+@pytest.mark.parametrize("language", ["ru", "en"])
+def test_scanned_cv_is_read_with_ocr(taxonomy: Taxonomy, language: str) -> None:
+    ocr = TesseractOcr()
+    if not ocr.available:
+        pytest.skip("Tesseract with Russian and English is not installed")
+    candidate = next(c for c in make_candidates(40, seed=5) if c.language == language)
+    document = read_document(write_cv(candidate, "classic", "scan"), ocr=ocr)
+    assert document.ocr_pages, "the scan has no text layer, so every page goes through OCR"
+    assert document.ocr_confidence is not None and document.ocr_confidence > 70
+    profile = extract_profile(document.text, taxonomy, today=TODAY)
+    truth = candidate.explicit_skills()
+    assert len(truth & set(profile.skills)) / len(truth) >= 0.9
