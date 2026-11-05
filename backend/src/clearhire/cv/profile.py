@@ -8,13 +8,20 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 from clearhire.cv.dates import DateRange, YearMonth, find_ranges, merged_months
 from clearhire.cv.languages import find_languages
 from clearhire.cv.sections import Section, split_sections
 from clearhire.skills import Mention, Taxonomy
 
-DEGREE_NAMES = {0: "not stated", 1: "vocational", 2: "higher (bachelor or specialist)", 3: "master", 4: "doctorate"}
+DEGREE_NAMES = {
+    0: "not stated",
+    1: "vocational",
+    2: "higher (bachelor or specialist)",
+    3: "master",
+    4: "doctorate",
+}
 _DEGREES: list[tuple[int, re.Pattern[str]]] = [
     (4, re.compile(r"\b(ph\.?\s?d|doctor of|кандидат\w* наук|доктор\w* наук|аспирантур\w*)", re.I)),
     (3, re.compile(r"\b(master'?s?|m\.?sc|mba|магистр\w*|магистратур\w*)", re.I)),
@@ -23,10 +30,18 @@ _DEGREES: list[tuple[int, re.Pattern[str]]] = [
     (1, re.compile(r"\b(college|колледж\w*|техникум\w*|среднее специальное|училищ\w*)", re.I)),
 ]  # fmt: skip
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-_PHONE = re.compile(r"(?<![\w+])(?:\+\d{1,3}[\s(.-]*|8[\s(]+)\d{2,4}[)\s.-]*\d{2,3}[\s.-]*\d{2}[\s.-]*\d{2,3}(?!\d)")
-_TELEGRAM = re.compile(r"(?:t\.me/|telegram[:\s]+@?|tg[:\s]+@)([A-Za-z][\w]{3,31})|(?<![\w@])@([A-Za-z][\w]{3,31})\b")
+_PHONE = re.compile(
+    r"(?<![\w+])(?:\+\d{1,3}[\s(.-]*|8[\s(]+)\d{2,4}[)\s.-]*\d{2,3}[\s.-]*\d{2}[\s.-]*\d{2,3}(?!\d)"
+)
+_TELEGRAM = re.compile(
+    r"(?:t\.me/|telegram[:\s]+@?|tg[:\s]+@)([A-Za-z][\w]{3,31})|(?<![\w@])@([A-Za-z][\w]{3,31})\b"
+)
 _LINK = re.compile(r"(?:https?://)?(?:www\.)?(?:linkedin\.com/in|github\.com|gitlab\.com)/[\w./-]+", re.I)
 _BULLET = re.compile(r"^\s*(?:[-–—•·▪●*]|\d{1,2}[.)])\s")
+# hh.ru puts each role's length under its dates: "4 года 9 месяцев", "2 years 3 months"
+_DURATION_LINE = re.compile(
+    r"^\s*(?:\d+\s*(?:лет|года|год|years?|yrs?|месяц\w*|months?)\s*)+$", re.IGNORECASE
+)
 _NAME_LINE = re.compile(r"^[A-ZА-ЯЁ][a-zа-яё'’-]+(?:\s+[A-ZА-ЯЁ][a-zа-яё'’-]+){1,2}$")
 _CYRILLIC = re.compile(r"[а-яё]", re.I)
 _LATIN = re.compile(r"[a-z]", re.I)
@@ -95,6 +110,66 @@ class CandidateProfile:
                 return position
         return None
 
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-ready form, stored with the candidate so matching never has to re-read the file."""
+        return {
+            "sections": [[s.kind, s.title, s.start, s.end] for s in self.sections],
+            "positions": [
+                [p.title, list(p.start), list(p.end), p.current, p.months, list(p.span), list(p.dates_span)]
+                for p in self.positions
+            ],
+            "total_months": self.total_months,
+            "skills": {
+                skill_id: {
+                    "mentions": [[m.start, m.end, m.alias] for m in evidence.mentions],
+                    "months": evidence.months,
+                    "implied_by": evidence.implied_by,
+                }
+                for skill_id, evidence in self.skills.items()
+            },
+            "languages": {
+                code: [lang.level, list(lang.span) if lang.span else None, lang.inferred]
+                for code, lang in self.languages.items()
+            },
+            "education": [self.education.degree, self.education.text, list(self.education.span)]
+            if self.education
+            else None,
+            "name": self.name,
+            "contacts": self.contacts,
+            "language": self.language,
+        }
+
+    @classmethod
+    def from_dict(cls, text: str, data: dict[str, Any]) -> CandidateProfile:
+        return cls(
+            text=text,
+            sections=[Section(kind, title, start, end) for kind, title, start, end in data["sections"]],
+            positions=[
+                Position(title, (s[0], s[1]), (e[0], e[1]), current, months, (sp[0], sp[1]), (ds[0], ds[1]))
+                for title, s, e, current, months, sp, ds in data["positions"]
+            ],
+            total_months=data["total_months"],
+            skills={
+                skill_id: SkillEvidence(
+                    skill_id,
+                    [Mention(skill_id, start, end, alias) for start, end, alias in value["mentions"]],
+                    value["months"],
+                    value["implied_by"],
+                )
+                for skill_id, value in data["skills"].items()
+            },
+            languages={
+                code: LanguageSkill(code, level, (span[0], span[1]) if span else None, inferred)
+                for code, (level, span, inferred) in data["languages"].items()
+            },
+            education=Education(data["education"][0], data["education"][1], tuple(data["education"][2]))
+            if data["education"]
+            else None,
+            name=data["name"],
+            contacts=data["contacts"],
+            language=data["language"],
+        )
+
 
 def cyrillic_share(text: str) -> float:
     cyrillic = len(_CYRILLIC.findall(text))
@@ -103,7 +178,7 @@ def cyrillic_share(text: str) -> float:
 
 
 def detect_language(text: str) -> str:
-    """"ru" or "en" for a CV written mostly in one of them; Russian CVs are full of Latin tech names."""
+    """ "ru" or "en" for a CV written mostly in one of them; Russian CVs are full of Latin tech names."""
     share = cyrillic_share(text)
     if share >= 0.5:
         return "ru"
@@ -149,11 +224,16 @@ def _positions(text: str, ranges: list[DateRange], bounds: dict[int, tuple[int, 
         start = starts[index]
         section_end = bounds[index][1]
         end = min(starts[index + 1] if index + 1 < len(ranges) else section_end, section_end)
-        header = text[start:_line_end(text, date_range.span[1])]
+        header = text[start : _line_end(text, date_range.span[1])]
         title = (header.replace(text[date_range.span[0] : date_range.span[1]], " ")).strip(" \n,|—–-")
         if not title:  # hh.ru layout: dates first, then the company and title lines
             following = text[date_range.span[1] : end].strip().split("\n")
-            title = " — ".join(line.strip() for line in following[:2] if line.strip() and not _BULLET.match(line))
+            useful = [
+                line.strip()
+                for line in following
+                if line.strip() and not _BULLET.match(line) and not _DURATION_LINE.match(line)
+            ]
+            title = " — ".join(useful[:2])
         title = " ".join(title.split())[:140]
         positions.append(
             Position(title, date_range.start, date_range.end, date_range.current, date_range.months,

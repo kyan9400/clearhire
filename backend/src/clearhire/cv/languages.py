@@ -44,7 +44,8 @@ _WORD_TO_LEVEL: list[tuple[str, int]] = [
 _WORD_TO_LEVEL.sort(key=lambda item: len(item[0]), reverse=True)
 _CEFR = re.compile(r"(?<![A-Za-z0-9])([ABC])\s?([12])(?![0-9A-Za-zА-Яа-я])\s*(\+)?", re.IGNORECASE)
 _NAME_PATTERN = re.compile(
-    r"(?<![\w])(" + "|".join(sorted({n for names in LANGUAGES.values() for n in names}, key=len, reverse=True))
+    r"(?<![\w])("
+    + "|".join(sorted({n for names in LANGUAGES.values() for n in names}, key=len, reverse=True))
     + r")[\w]*\.?",
     re.IGNORECASE,
 )

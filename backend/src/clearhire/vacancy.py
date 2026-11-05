@@ -7,6 +7,7 @@ matched by meaning.
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -83,7 +84,9 @@ def parse_requirement(text: str, taxonomy: Taxonomy, *, must: bool, rid: str) ->
     clean = _BULLET.sub("", text).strip().rstrip(";.")
     weight = 1.0 if must else 0.5
     languages = find_languages(clean)
-    mentions = [m for m in taxonomy.find(clean) if not any(lm.span[0] <= m.start < lm.span[1] for lm in languages)]
+    mentions = [
+        m for m in taxonomy.find(clean) if not any(lm.span[0] <= m.start < lm.span[1] for lm in languages)
+    ]
     skills: list[str] = []
     for mention in mentions:
         if mention.skill_id not in skills:
@@ -96,10 +99,10 @@ def parse_requirement(text: str, taxonomy: Taxonomy, *, must: bool, rid: str) ->
                            min_level=level or 3, weight=weight)  # fmt: skip
     if skills:
         any_of = False
-        if len(skills) > 1:
-            first = min(m.start for m in mentions)
-            last = max(m.end for m in mentions)
-            any_of = bool(_ANY_OF.search(clean[first:last]))
+        ordered = sorted(mentions, key=lambda m: m.start)
+        for previous, current in itertools.pairwise(ordered):
+            if current.skill_id != previous.skill_id and _ANY_OF.search(clean[previous.end : current.start]):
+                any_of = True
         return Requirement(rid, clean, "skill", must, skills=skills, any_of=any_of, min_years=min_years,
                            weight=weight)  # fmt: skip
     if min_years is not None:
@@ -131,7 +134,9 @@ def parse_requirements(text: str, taxonomy: Taxonomy) -> list[Requirement]:
             continue
         if len(body) < 3 or body.endswith(":"):
             continue
-        requirement = parse_requirement(body, taxonomy, must=current == "must", rid=f"r{len(requirements) + 1}")
+        requirement = parse_requirement(
+            body, taxonomy, must=current == "must", rid=f"r{len(requirements) + 1}"
+        )
         requirements.append(requirement)
     return requirements
 

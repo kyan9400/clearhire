@@ -11,7 +11,9 @@ from conftest import RUSSIAN_CV, TODAY, VACANCY
 
 def test_requirements_are_parsed_into_checks(taxonomy: Taxonomy) -> None:
     requirements = parse_requirements(VACANCY, taxonomy)
-    summary = [(r.kind, r.must, r.skills, r.any_of, r.min_years, r.language, r.min_level) for r in requirements]
+    summary = [
+        (r.kind, r.must, r.skills, r.any_of, r.min_years, r.language, r.min_level) for r in requirements
+    ]
     assert summary == [
         ("skill", True, ["python"], False, 5.0, None, None),
         ("skill", True, ["fastapi", "django"], True, None, None, None),
@@ -26,7 +28,9 @@ def test_requirements_are_parsed_into_checks(taxonomy: Taxonomy) -> None:
 
 
 def test_russian_requirement_lines(taxonomy: Taxonomy) -> None:
-    years = parse_requirement("Опыт коммерческой разработки на Python от 3 лет", taxonomy, must=True, rid="r1")
+    years = parse_requirement(
+        "Опыт коммерческой разработки на Python от 3 лет", taxonomy, must=True, rid="r1"
+    )
     assert (years.kind, years.skills, years.min_years) == ("skill", ["python"], 3.0)
     language = parse_requirement("Английский язык не ниже B1", taxonomy, must=True, rid="r2")
     assert (language.kind, language.language, language.min_level) == ("language", "en", 3)
@@ -39,7 +43,9 @@ def test_russian_requirement_lines(taxonomy: Taxonomy) -> None:
 def test_match_reports_each_requirement_with_evidence(taxonomy: Taxonomy, embedder: HashEmbedder) -> None:
     profile = extract_profile(RUSSIAN_CV, taxonomy, today=TODAY)
     cv = index_cv(profile, embedder)
-    vacancy = prepare_vacancy(parse_requirements(VACANCY, taxonomy), vacancy_query_text("Python", VACANCY), embedder)
+    vacancy = prepare_vacancy(
+        parse_requirements(VACANCY, taxonomy), vacancy_query_text("Python", VACANCY), embedder
+    )
     result = match(cv, vacancy, taxonomy)
     statuses = [r.status for r in result.results]
     assert statuses == ["met", "met", "met", "met", "met", "met", "met", "missing"]
@@ -52,7 +58,9 @@ def test_match_reports_each_requirement_with_evidence(taxonomy: Taxonomy, embedd
     assert quote.quote[quote.highlight[0] : quote.highlight[1]] == "Kafka"
 
 
-def test_years_below_the_requirement_are_partial_or_missing(taxonomy: Taxonomy, embedder: HashEmbedder) -> None:
+def test_years_below_the_requirement_are_partial_or_missing(
+    taxonomy: Taxonomy, embedder: HashEmbedder
+) -> None:
     profile = extract_profile(RUSSIAN_CV, taxonomy, today=TODAY)
     cv = index_cv(profile, embedder)
     lines = "Requirements:\n- Kafka: 4+ years\n- Kubernetes: 2+ years\n- FastAPI: 20+ years"

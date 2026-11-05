@@ -79,11 +79,13 @@ ignore = [
   "RUF001", "RUF002", "RUF003",  # Cyrillic and typographic characters are intended
   "S101",                        # assert is used in tests and for invariants
   "SIM905",                      # word lists read better as """...""".split()
+  "E501",                        # the formatter owns line length
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S311", "PT011", "PT018"]
 "src/clearhire/synth/**" = ["S311"]  # the synthetic data generator uses a seeded random.Random on purpose
+"src/clearhire/services/seed.py" = ["S311"]  # demo data, seeded on purpose
 
 [tool.mypy]
 python_version = "3.12"

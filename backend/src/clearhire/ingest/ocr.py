@@ -43,7 +43,7 @@ class TesseractOcr:
 
     def _run(self, *args: str, data: bytes | None = None) -> str:
         try:
-            result = subprocess.run(  # fixed executable, arguments built here
+            result = subprocess.run(  # noqa: S603 - fixed executable, arguments built here
                 [self.command, *args],
                 input=data,
                 capture_output=True,

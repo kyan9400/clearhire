@@ -90,3 +90,13 @@ def test_hh_style_layout_dates_before_company(taxonomy: Taxonomy) -> None:
     (position,) = profile.positions
     assert position.title == "Яндекс — Разработчик интерфейсов"
     assert profile.skills["react"].months == 39
+
+
+def test_profile_round_trips_through_json(taxonomy: Taxonomy) -> None:
+    import json
+
+    from clearhire.cv.profile import CandidateProfile
+
+    profile = extract_profile(RUSSIAN_CV, taxonomy, today=TODAY)
+    restored = CandidateProfile.from_dict(RUSSIAN_CV, json.loads(json.dumps(profile.to_dict())))
+    assert restored == profile

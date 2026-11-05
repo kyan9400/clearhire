@@ -11,6 +11,7 @@ from typing import Any
 
 import yaml
 
+from clearhire.skills.aho import AhoCorasick
 from clearhire.skills.matcher import Matcher, make_matcher, native_available
 from clearhire.text import fold
 
@@ -57,6 +58,8 @@ class Taxonomy:
             if unknown:
                 raise ValueError(f"{skill.id} implies unknown skills: {unknown}")
             for alias in skill.aliases:
+                if "*" in alias.rstrip("*"):
+                    raise ValueError(f"{skill.id}: '*' only works at the end of an alias: {alias!r}")
                 is_prefix = alias.endswith("*")
                 pattern = fold(alias.rstrip("*").strip())
                 key = (pattern, is_prefix)
@@ -74,6 +77,15 @@ class Taxonomy:
                 self._strict[alias] = skill.id
         self.pattern_count = len(patterns)
         self._matcher: Matcher = make_matcher(patterns, prefix, native=native)
+        self.native = not isinstance(self._matcher, AhoCorasick)  # the C++ extension is in use
+        # all-caps acronyms (RAG, REST, ML) are safe to match anywhere, as written; other strict aliases
+        # ("Go", "Spring", "R") count only inside lists
+        acronyms = sorted((a for a in self._strict if a.isupper() and len(a) >= 2), key=len, reverse=True)
+        self._acronyms = (
+            re.compile(r"(?<![\w])(" + "|".join(re.escape(a) for a in acronyms) + r")(?![\w])")
+            if acronyms
+            else None
+        )
 
     @classmethod
     def from_yaml(cls, data: str, *, native: bool | None = None) -> Taxonomy:
@@ -100,12 +112,31 @@ class Taxonomy:
         ]
         mentions.extend(self._find_strict(text))
         mentions.sort(key=lambda m: (m.start, -m.end, m.skill_id))
-        return mentions
+        unique = [m for i, m in enumerate(mentions) if i == 0 or m != mentions[i - 1]]
+        return [m for m in unique if not self._redundant(m, unique)]
+
+    def _redundant(self, mention: Mention, mentions: list[Mention]) -> bool:
+        """A mention inside a longer one that names the same skill or one implying it ("React" in
+        "React Native"). "Angular" in "Angular Material" stays: Material UI does not imply Angular."""
+        for other in mentions:
+            if other is mention or other.start > mention.start:
+                continue
+            covers = other.end >= mention.end and (other.start, other.end) != (mention.start, mention.end)
+            if covers and (
+                other.skill_id == mention.skill_id or mention.skill_id in self.closure({other.skill_id})
+            ):
+                return True
+        return False
 
     def _find_strict(self, text: str) -> list[Mention]:
         found: list[Mention] = []
         if not self._strict:
             return found
+        if self._acronyms is not None:
+            for match in self._acronyms.finditer(text):
+                found.append(
+                    Mention(self._strict[match.group(1)], match.start(), match.end(), match.group(1))
+                )
         for item in _LIST_ITEM.finditer(text):
             raw = item.group()
             stripped = raw.strip(_ITEM_TRIM)

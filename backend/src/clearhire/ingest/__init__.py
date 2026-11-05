@@ -50,7 +50,11 @@ def detect_type(data: bytes) -> str:
         except zipfile.BadZipFile:
             pass
         raise UnreadableDocument("a ZIP file that is not a Word document")
-    if data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff" or data[:4] in (b"II*\x00", b"MM\x00*"):
+    if (
+        data[:8] == b"\x89PNG\r\n\x1a\n"
+        or data[:3] == b"\xff\xd8\xff"
+        or data[:4] in (b"II*\x00", b"MM\x00*")
+    ):
         return "image"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image"

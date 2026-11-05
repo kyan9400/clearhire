@@ -50,9 +50,16 @@ class RequirementResult:
 @dataclass(slots=True)
 class MatchResult:
     score: float
-    must_have_gaps: int
+    must_have_gaps: int  # must-haves that are missing
     semantic: float
     results: list[RequirementResult]
+    must_met: int = 0  # must-haves that are fully met
+    must_total: int = 0
+
+    @property
+    def qualified(self) -> bool:
+        """Every must-have is fully met (partly met ones, like 2 years of 3, do not count)."""
+        return self.must_met == self.must_total
 
     def rank_key(self) -> tuple[int, float, float]:
         return (self.must_have_gaps, -round(self.score, 6), -self.semantic)
@@ -129,8 +136,11 @@ def index_cv(
     """Embed the CV's passages. With `blind`, names, contacts, age, gender and similar details are
     replaced before the model sees the text, so they cannot move the similarity."""
     chunks = chunk_profile(profile)
-    spans = pii_spans(profile) if blind else []
-    texts = [redact_for_model(profile.text, chunk.span, spans) for chunk in chunks]
+    if blind:
+        spans = pii_spans(profile)
+        texts = [redact_for_model(profile.text, chunk.span, spans) for chunk in chunks]
+    else:  # the CV's own words, for comparison in the fairness evaluation
+        texts = [chunk.text for chunk in chunks]
     vectors = embedder.embed_passages(texts) if texts else np.zeros((0, embedder.dim), dtype=np.float32)
     return IndexedCV(profile, chunks, vectors, page_of or (lambda _offset: None))
 
@@ -278,9 +288,13 @@ class PreparedVacancy:
     vacancy_vector: Vectors
 
 
-def prepare_vacancy(requirements: Sequence[Requirement], query_text: str, embedder: Embedder) -> PreparedVacancy:
+def prepare_vacancy(
+    requirements: Sequence[Requirement], query_text: str, embedder: Embedder
+) -> PreparedVacancy:
     free_text = [r for r in requirements if r.kind == "other"]
-    vectors = embedder.embed_queries([r.text for r in free_text]) if free_text else []
+    vectors: Vectors | list[Vectors] = (
+        embedder.embed_queries([r.text for r in free_text]) if free_text else []
+    )
     return PreparedVacancy(
         list(requirements),
         {r.id: vectors[i] for i, r in enumerate(free_text)},
@@ -292,7 +306,7 @@ def match(cv: IndexedCV, vacancy: PreparedVacancy, taxonomy: Taxonomy) -> MatchR
     results: list[RequirementResult] = []
     total = 0.0
     weights = 0.0
-    gaps = 0
+    gaps = must_met = must_total = 0
     for req in vacancy.requirements:
         if req.kind == "skill" and req.skills:
             result = _match_skill(cv, req, taxonomy)
@@ -309,13 +323,18 @@ def match(cv: IndexedCV, vacancy: PreparedVacancy, taxonomy: Taxonomy) -> MatchR
         results.append(result)
         total += req.weight * STATUS_SCORE[result.status]
         weights += req.weight
-        if req.must and result.status == "missing":
-            gaps += 1
+        if req.must:
+            must_total += 1
+            must_met += result.status == "met"
+            gaps += result.status == "missing"
     score = total / weights if weights else 0.0
-    return MatchResult(round(score, 4), gaps, round(semantic_similarity(cv, vacancy.vacancy_vector), 4), results)
+    semantic = round(semantic_similarity(cv, vacancy.vacancy_vector), 4)
+    return MatchResult(round(score, 4), gaps, semantic, results, must_met, must_total)
 
 
-def rank(cvs: Sequence[IndexedCV], vacancy: PreparedVacancy, taxonomy: Taxonomy) -> list[tuple[int, MatchResult]]:
+def rank(
+    cvs: Sequence[IndexedCV], vacancy: PreparedVacancy, taxonomy: Taxonomy
+) -> list[tuple[int, MatchResult]]:
     """(index into `cvs`, result), best match first."""
     scored = [(index, match(cv, vacancy, taxonomy)) for index, cv in enumerate(cvs)]
     scored.sort(key=lambda item: (item[1].rank_key(), item[0]))

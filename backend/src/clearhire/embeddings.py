@@ -41,7 +41,8 @@ class SentenceTransformerEmbedder:
         self.name = model_name
         self.model = SentenceTransformer(model_name, device=device)
         get_dimension = (  # renamed to get_embedding_dimension in sentence-transformers 6
-            getattr(self.model, "get_embedding_dimension", None) or self.model.get_sentence_embedding_dimension
+            getattr(self.model, "get_embedding_dimension", None)
+            or self.model.get_sentence_embedding_dimension
         )
         dim = get_dimension()
         if dim is None:

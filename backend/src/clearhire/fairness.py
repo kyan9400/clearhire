@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 
 Span = tuple[int, int, str]
 
+# feminine past tense: "разработала" -> "разработал", "занималась" -> "занимался"
+_RU_FEMININE_PAST = re.compile(r"\b([А-Яа-яЁё]+[аяеиоуы])ла(сь)?\b")
+
 _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("gender, age", re.compile(r"\b(?:Мужчина|Женщина|Male|Female|Man|Woman)\s*,\s*\d{2}\s*(?:лет|года|год|years old|y\.?o\.?)", re.I)),
     ("age", re.compile(r"\b(?:Возраст|Age)\s*[:\-–—]?\s*\d{2}(?:\s*(?:лет|года|год|years))?", re.I)),
@@ -43,7 +46,9 @@ def pii_spans(profile: CandidateProfile) -> list[Span]:
         names.add(profile.name)
         names.update(part for part in profile.name.split() if len(part) >= 3)
     for name in sorted(names, key=len, reverse=True):
-        spans.extend((m.start(), m.end(), "name") for m in re.finditer(rf"(?<![\w]){re.escape(name)}\w*", text))
+        spans.extend(
+            (m.start(), m.end(), "name") for m in re.finditer(rf"(?<![\w]){re.escape(name)}\w*", text)
+        )
     for label, values in profile.contacts.items():
         for value in values:
             spans.extend((m.start(), m.end(), label) for m in re.finditer(re.escape(value), text))
@@ -58,8 +63,18 @@ def pii_spans(profile: CandidateProfile) -> list[Span]:
     return merged
 
 
+def neutral_verbs(text: str) -> str:
+    """Russian past-tense verbs in one form, so the wording no longer tells the writer's gender.
+
+    Applied to model input only. Both versions of a CV get the same treatment, so the occasional noun
+    that happens to match ("школа" -> "школ") cannot separate them either.
+    """
+    return _RU_FEMININE_PAST.sub(lambda m: m.group(1) + ("лся" if m.group(2) else "л"), text)
+
+
 def redact_for_model(text: str, window: tuple[int, int], spans: list[Span]) -> str:
-    """text[window] with personal details replaced by "[label]" tokens, for the embedding model."""
+    """text[window] with personal details replaced by "[label]" tokens and verbs made gender-neutral,
+    for the embedding model."""
     start, end = window
     out: list[str] = []
     cursor = start
@@ -70,7 +85,7 @@ def redact_for_model(text: str, window: tuple[int, int], spans: list[Span]) -> s
         out.append(f"[{label}]")
         cursor = max(cursor, min(span_end, end))
     out.append(text[cursor:end])
-    return "".join(out)
+    return neutral_verbs("".join(out))
 
 
 def redact_for_display(text: str, spans: list[Span]) -> str:

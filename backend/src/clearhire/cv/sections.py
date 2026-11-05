@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from clearhire.text import fold
@@ -41,6 +42,12 @@ _HEADINGS: dict[str, tuple[str, ...]] = {
 
 _LOOKUP = {heading: kind for kind, headings in _HEADINGS.items() for heading in headings}
 _TRIM = " \t:：-–—•·*#|_=."
+# hh.ru exports add the total to the heading: "Опыт работы — 7 лет 3 месяца", "Experience (5 years)"
+_TRAILING_DURATION = re.compile(
+    r"[\s:—–-]*\(?\s*\d+\s*(?:лет|года|год|years?|yrs?)(?:\s*\d+\s*(?:месяц\w*|months?))?\s*\)?\s*$"
+    r"|[\s:—–-]*\(?\s*\d+\s*(?:месяц\w*|months?)\s*\)?\s*$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +59,7 @@ class Section:
 
 
 def heading_kind(line: str) -> str | None:
-    stripped = line.strip(_TRIM)
+    stripped = _TRAILING_DURATION.sub("", line).strip(_TRIM)
     if not stripped or len(stripped) > 40:
         return None
     return _LOOKUP.get(" ".join(fold(stripped).split()))
