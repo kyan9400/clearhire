@@ -1,0 +1,70 @@
+.save {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--met-soft);
+  border: 1px solid color-mix(in srgb, var(--met) 30%, transparent);
+  margin-bottom: 24px;
+}
+
+.save p {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.copyRow {
+  display: flex;
+  gap: 8px;
+}
+
+.copyRow input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 13px var(--mono);
+}
+
+.erase {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+}
+
+.erase > div:first-child {
+  flex: 1 1 340px;
+}
+
+.erase p {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.erased {
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.erased p {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--text-2);
+}

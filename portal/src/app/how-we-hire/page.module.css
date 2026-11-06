@@ -1,0 +1,41 @@
+.page {
+  max-width: 760px;
+  padding-top: 44px;
+  display: grid;
+  gap: 26px;
+}
+
+.lead {
+  font-size: 18px;
+  color: var(--text-2);
+  margin-top: -12px;
+}
+
+.page section {
+  display: grid;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.page section h2 {
+  color: var(--text);
+}
+
+.page ul {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.page strong {
+  color: var(--text);
+}
+
+.page section:target h2 {
+  color: var(--accent-text);
+}
+
+.back {
+  margin-top: 8px;
+}

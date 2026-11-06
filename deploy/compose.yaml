@@ -1,0 +1,129 @@
+# The whole of Clearhire on one Docker host:
+#   cp deploy/.env.example deploy/.env   # then fill it in
+#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --build
+#
+# Only Caddy publishes ports. Every container opts out of Watchtower: this host may run other people's
+# services with auto-updates, and a database must never be upgraded underneath us.
+name: clearhire
+
+x-labels: &labels
+  com.centurylinklabs.watchtower.enable: "false"
+  app: clearhire
+
+x-backend: &backend
+  image: clearhire-api:${CLEARHIRE_VERSION:-latest}
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+  restart: unless-stopped
+  labels: *labels
+  environment:
+    CLEARHIRE_DATABASE_URL: postgresql+asyncpg://clearhire:${POSTGRES_PASSWORD:?}@postgres:5432/clearhire
+    CLEARHIRE_REDIS_URL: redis://redis:6379/0
+    CLEARHIRE_JWT_SECRET: ${JWT_SECRET:?}
+    CLEARHIRE_CORS_ORIGINS: '["https://${CONSOLE_HOST}","https://${CAREERS_HOST}"]'
+    CLEARHIRE_DEMO_READ_ONLY: ${DEMO_READ_ONLY:-false}
+    CLEARHIRE_RETENTION_DAYS: ${RETENTION_DAYS:-365}
+  volumes:
+    - files:/data/files
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    migrate: { condition: service_completed_successfully }
+  networks: [internal]
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg17
+    restart: unless-stopped
+    labels: *labels
+    environment:
+      POSTGRES_USER: clearhire
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: clearhire
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clearhire -d clearhire"]
+      interval: 5s
+      retries: 20
+    shm_size: 256mb
+    networks: [internal]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    labels: *labels
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    networks: [internal]
+
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    deploy:
+      resources:
+        limits: { memory: 3g }
+
+  worker:
+    <<: *backend
+    command: ["taskiq", "worker", "clearhire.tasks:broker", "--workers", "1"]
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits: { memory: 3g }
+
+  portal:
+    image: clearhire-portal:${CLEARHIRE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: portal/Dockerfile
+    restart: unless-stopped
+    labels: *labels
+    environment:
+      CLEARHIRE_API_URL: http://api:8000
+      CLEARHIRE_PUBLIC_URL: https://${CAREERS_HOST}
+      CLEARHIRE_RETENTION_DAYS: ${RETENTION_DAYS:-365}
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [internal]
+
+  caddy:
+    image: clearhire-caddy:${CLEARHIRE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: deploy/caddy/Dockerfile
+    restart: unless-stopped
+    labels: *labels
+    environment:
+      CAREERS_HOST: ${CAREERS_HOST:?}
+      CONSOLE_HOST: ${CONSOLE_HOST:?}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api, portal]
+    networks: [internal]
+
+volumes:
+  postgres:
+  files:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:

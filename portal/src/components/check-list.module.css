@@ -1,0 +1,114 @@
+.groups {
+  display: grid;
+  gap: 22px;
+}
+
+.groupTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.item[data-status='met'] {
+  border-color: color-mix(in srgb, var(--met) 35%, var(--border));
+}
+
+.item[data-status='partial'] {
+  border-color: color-mix(in srgb, var(--partial) 35%, var(--border));
+}
+
+.item[data-status='missing'] {
+  border-color: color-mix(in srgb, var(--missing) 30%, var(--border));
+}
+
+.mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+[data-status='met'] .mark {
+  background: var(--met-soft);
+  color: var(--met);
+}
+
+[data-status='partial'] .mark {
+  background: var(--partial-soft);
+  color: var(--partial);
+}
+
+[data-status='missing'] .mark {
+  background: var(--missing-soft);
+  color: var(--missing);
+}
+
+.body {
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14.5px;
+  font-weight: 550;
+}
+
+.detail {
+  margin-top: 3px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.quote {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.quote blockquote {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.quote figcaption {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-3);
+}

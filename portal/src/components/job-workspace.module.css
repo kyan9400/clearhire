@@ -1,0 +1,165 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
+  align-items: start;
+}
+
+.main {
+  display: grid;
+  gap: 36px;
+  min-width: 0;
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.descTitle {
+  margin-bottom: 12px;
+}
+
+.summary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.score {
+  display: grid;
+  justify-items: center;
+  min-width: 96px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--partial-soft);
+  color: var(--partial);
+}
+
+.score[data-qualified='true'] {
+  background: var(--met-soft);
+  color: var(--met);
+}
+
+.score strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.score span {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.summaryText {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.side {
+  position: sticky;
+  top: 76px;
+}
+
+.panel {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.panelTitle {
+  font-size: 16px;
+}
+
+.drop {
+  display: grid;
+  gap: 4px;
+  padding: 18px 14px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.drop:hover,
+.drop:focus-within {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop[data-has-file='true'] {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.fileName {
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: -4px;
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.consent {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.consent input {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

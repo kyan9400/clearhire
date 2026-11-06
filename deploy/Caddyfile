@@ -1,0 +1,57 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	# Prometheus metrics stay inside the Docker network
+	respond /metrics 404
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Careers site: public API calls go straight to the API (so its rate limits see the candidate's address),
+# everything else to Next.js.
+{$CAREERS_HOST} {
+	import common
+	request_body /api/public/* {
+		max_size 12MB
+	}
+	handle /api/public/* {
+		reverse_proxy api:8000
+	}
+	handle /api/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy portal:3100
+	}
+}
+
+# Recruiter console: the Angular build, with the whole API behind it.
+{$CONSOLE_HOST} {
+	import common
+	request_body /api/* {
+		max_size 12MB
+	}
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		root * /srv/console
+		header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'"
+		@assets path *.js *.css *.woff2 *.svg *.png *.ico
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
