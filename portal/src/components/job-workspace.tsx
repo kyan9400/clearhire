@@ -135,7 +135,7 @@ export function JobWorkspace({
             {file ? (
               <>
                 <strong className={styles.fileName}>{file.name}</strong>
-                <span className="muted">{(file.size / 1024).toFixed(0)} KB · choose another</span>
+                <span className="muted">{Math.max(1, Math.round(file.size / 1024))} KB · choose another</span>
               </>
             ) : (
               <>

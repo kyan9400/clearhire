@@ -24,6 +24,17 @@ describe('parseDescription', () => {
       { kind: 'paragraph', text: long },
     ]);
   });
+
+  it('treats short title-like lines without a colon as headings', () => {
+    const text = 'About the role\nQuartz Media is growing.\nIts team too.\nЧто мы предлагаем\n- ДМС\nRemote first';
+    expect(parseDescription(text)).toEqual([
+      { kind: 'heading', text: 'About the role' },
+      { kind: 'paragraph', text: 'Quartz Media is growing. Its team too.' },
+      { kind: 'heading', text: 'Что мы предлагаем' },
+      { kind: 'list', items: ['ДМС'] },
+      { kind: 'paragraph', text: 'Remote first' }, // the last line has nothing after it
+    ]);
+  });
 });
 
 describe('formatting', () => {

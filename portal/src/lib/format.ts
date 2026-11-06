@@ -5,10 +5,21 @@ export type Block =
 
 const BULLET = /^\s*(?:[-–—•*·▪]|\d{1,2}[.)])\s+/;
 
+/** A short line that reads like a section title: "Requirements", "Что мы предлагаем", "About the role". */
+function looksLikeHeading(line: string, next: string | undefined): boolean {
+  return (
+    !!next?.trim() &&
+    line.length <= 40 &&
+    line.split(/\s+/).length <= 5 &&
+    /^\p{Lu}/u.test(line) &&
+    !/[.,;!?)]$/.test(line)
+  );
+}
+
 /**
- * Vacancy descriptions are plain text. Short lines ending in a colon become headings, runs of bulleted
- * lines become lists, everything else is a paragraph. The first line repeats the title, so it is dropped
- * when it does.
+ * Vacancy descriptions are plain text. Short lines ending in a colon, or short title-like lines followed
+ * by more text, become headings; runs of bulleted lines become lists; everything else is a paragraph. The
+ * first line repeats the title, so it is dropped when it does.
  */
 export function parseDescription(text: string, title = ''): Block[] {
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
@@ -19,7 +30,7 @@ export function parseDescription(text: string, title = ''): Block[] {
     if (paragraph.length) blocks.push({ kind: 'paragraph', text: paragraph.join(' ') });
     paragraph = [];
   };
-  for (const raw of lines) {
+  for (const [index, raw] of lines.entries()) {
     const line = raw.trim();
     if (!line) {
       flush();
@@ -34,6 +45,10 @@ export function parseDescription(text: string, title = ''): Block[] {
     } else if (line.endsWith(':') && line.length <= 60) {
       flush();
       blocks.push({ kind: 'heading', text: line.slice(0, -1) });
+    } else if (/(^|[.!?])$/.test(paragraph.at(-1) ?? '') && looksLikeHeading(line, lines[index + 1])) {
+      // only after a finished sentence, so a wrapped line of a paragraph is never taken for a title
+      flush();
+      blocks.push({ kind: 'heading', text: line });
     } else {
       paragraph.push(line);
     }
