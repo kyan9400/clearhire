@@ -1,0 +1,37 @@
+name: portal
+
+on:
+  push:
+    branches: [main]
+    paths: ["portal/**", "api/openapi.json", ".github/workflows/portal.yml"]
+  pull_request:
+    paths: ["portal/**", "api/openapi.json", ".github/workflows/portal.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portal-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: portal
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - name: API types match api/openapi.json
+        run: npm run api:types && git diff --exit-code -- src/lib/schema.d.ts
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
