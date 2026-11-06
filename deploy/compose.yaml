@@ -70,6 +70,12 @@ services:
 
   api:
     <<: *backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
     deploy:
       resources:
         limits: { memory: 3g }
@@ -77,8 +83,6 @@ services:
   worker:
     <<: *backend
     command: ["taskiq", "worker", "clearhire.tasks:broker", "--workers", "1"]
-    healthcheck:
-      disable: true
     deploy:
       resources:
         limits: { memory: 3g }

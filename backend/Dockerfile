@@ -35,8 +35,8 @@ ENV PATH=/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     CLEARHIRE_STORAGE_DIR=/data/files
 USER clearhire
 EXPOSE 8000
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
-    CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"
+# No HEALTHCHECK here: the same image runs the worker, migrations and one-off commands, which serve no
+# HTTP. The API's health check is in deploy/compose.yaml.
 # behind Caddy on a private network: trust its X-Forwarded-For, so rate limits see the real client
 CMD ["uvicorn", "clearhire.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", \
      "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]
