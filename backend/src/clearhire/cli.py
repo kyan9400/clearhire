@@ -1,4 +1,4 @@
-"""Command line: `clearhire synth | eval | parse`."""
+"""Command line: `clearhire synth | eval | parse | seed | create-user | openapi`."""
 
 from __future__ import annotations
 
@@ -105,6 +105,20 @@ def cmd_create_user(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_openapi(args: argparse.Namespace) -> int:
+    """Write the API schema the console and the portal generate their TypeScript types from."""
+    from clearhire.api.app import create_app
+    from clearhire.config import Settings
+
+    spec = create_app(Settings(debug=True)).openapi()  # the schema does not depend on any setting
+    text = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
+    if args.out == "-":
+        sys.stdout.write(text)
+    else:
+        Path(args.out).write_text(text, encoding="utf-8", newline="\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="clearhire", description="Explainable AI recruiting.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -138,6 +152,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("name")
     p.add_argument("--role", choices=["admin", "recruiter", "hiring_manager"], default="recruiter")
     p.set_defaults(func=cmd_create_user)
+
+    p = sub.add_parser("openapi", help="write the OpenAPI schema (for the TypeScript clients)")
+    p.add_argument("--out", default="../api/openapi.json", help="a file, or - for stdout")
+    p.set_defaults(func=cmd_openapi)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)

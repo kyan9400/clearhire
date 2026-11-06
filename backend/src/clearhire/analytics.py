@@ -81,7 +81,7 @@ def score_distribution(matches: pd.DataFrame, bins: int = 10) -> list[dict[str, 
     if matches.empty:
         return []
     counts, edges = np.histogram(matches["score"], bins=bins, range=(0, 1))
-    return [{"from": round(float(edges[i]), 2), "to": round(float(edges[i + 1]), 2), "count": int(c)}
+    return [{"low": round(float(edges[i]), 2), "high": round(float(edges[i + 1]), 2), "count": int(c)}
             for i, c in enumerate(counts)]  # fmt: skip
 
 

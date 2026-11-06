@@ -14,16 +14,22 @@ from clearhire.vacancy import KINDS
 StageName = Literal["new", "screening", "interview", "offer", "hired", "rejected"]
 
 
-class LoginIn(BaseModel):
+class Schema(BaseModel):
+    # in responses a field with a default is always present, so the schema marks it required; the
+    # TypeScript clients generated from it then need no optional checks
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class LoginIn(Schema):
     email: EmailStr
     password: str = Field(min_length=1, max_length=200)
 
 
-class RefreshIn(BaseModel):
+class RefreshIn(Schema):
     refresh_token: str
 
 
-class UserOut(BaseModel):
+class UserOut(Schema):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     email: str
@@ -31,14 +37,14 @@ class UserOut(BaseModel):
     role: Role
 
 
-class TokenOut(BaseModel):
+class TokenOut(Schema):
     access_token: str
     refresh_token: str
     token_type: Literal["bearer"] = "bearer"  # noqa: S105 - the OAuth token type, not a secret
     user: UserOut
 
 
-class RequirementIO(BaseModel):
+class RequirementIO(Schema):
     id: str = Field(pattern=r"^r\d{1,3}$")
     text: str = Field(min_length=1, max_length=400)
     kind: str
@@ -59,7 +65,7 @@ class RequirementIO(BaseModel):
         return value
 
 
-class VacancyIn(BaseModel):
+class VacancyIn(Schema):
     title: str = Field(min_length=2, max_length=200)
     company: str = Field(default="", max_length=200)
     location: str = Field(default="", max_length=120)
@@ -69,7 +75,7 @@ class VacancyIn(BaseModel):
     status: VacancyStatus = VacancyStatus.DRAFT
 
 
-class VacancyPatch(BaseModel):
+class VacancyPatch(Schema):
     title: str | None = Field(default=None, min_length=2, max_length=200)
     company: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=120)
@@ -78,7 +84,7 @@ class VacancyPatch(BaseModel):
     status: VacancyStatus | None = None
 
 
-class VacancyOut(BaseModel):
+class VacancyOut(Schema):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     title: str
@@ -95,15 +101,15 @@ class VacancyOut(BaseModel):
     qualified: int = 0
 
 
-class ParseRequirementsIn(BaseModel):
+class ParseRequirementsIn(Schema):
     text: str = Field(min_length=1, max_length=20000)
 
 
-class RequirementsIn(BaseModel):
+class RequirementsIn(Schema):
     requirements: list[RequirementIO] = Field(max_length=40)
 
 
-class EvidenceOut(BaseModel):
+class EvidenceOut(Schema):
     quote: str
     highlight: tuple[int, int]
     page: int | None
@@ -111,14 +117,14 @@ class EvidenceOut(BaseModel):
     source: str
 
 
-class RequirementResultOut(BaseModel):
+class RequirementResultOut(Schema):
     requirement_id: str
     status: Literal["met", "partial", "missing"]
     detail: str
     evidence: list[EvidenceOut]
 
 
-class RankedCandidate(BaseModel):
+class RankedCandidate(Schema):
     candidate_id: uuid.UUID
     application_id: uuid.UUID | None
     name: str  # a pseudonym in blind mode
@@ -134,7 +140,7 @@ class RankedCandidate(BaseModel):
     gaps: list[str]  # must-have requirement ids missing
 
 
-class RankingOut(BaseModel):
+class RankingOut(Schema):
     vacancy_id: uuid.UUID
     scope: Literal["applicants", "pool"]
     blind: bool
@@ -142,7 +148,7 @@ class RankingOut(BaseModel):
     items: list[RankedCandidate]
 
 
-class MatchOut(BaseModel):
+class MatchOut(Schema):
     candidate_id: uuid.UUID
     vacancy_id: uuid.UUID
     name: str
@@ -155,7 +161,7 @@ class MatchOut(BaseModel):
     results: list[RequirementResultOut]
 
 
-class CandidateOut(BaseModel):
+class CandidateOut(Schema):
     id: uuid.UUID
     name: str
     email: str | None
@@ -172,7 +178,7 @@ class CandidateOut(BaseModel):
     applications: list[ApplicationOut] = Field(default_factory=list)
 
 
-class SearchHit(BaseModel):
+class SearchHit(Schema):
     candidate_id: uuid.UUID
     name: str
     experience_months: int
@@ -181,16 +187,16 @@ class SearchHit(BaseModel):
     score: float
 
 
-class ApplicationIn(BaseModel):
+class ApplicationIn(Schema):
     candidate_id: uuid.UUID
     vacancy_id: uuid.UUID
 
 
-class StagePatch(BaseModel):
+class StagePatch(Schema):
     stage: Stage
 
 
-class ApplicationOut(BaseModel):
+class ApplicationOut(Schema):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     candidate_id: uuid.UUID
@@ -201,11 +207,11 @@ class ApplicationOut(BaseModel):
     updated_at: datetime
 
 
-class NoteIn(BaseModel):
+class NoteIn(Schema):
     text: str = Field(min_length=1, max_length=4000)
 
 
-class NoteOut(BaseModel):
+class NoteOut(Schema):
     model_config = ConfigDict(from_attributes=True)
     id: int
     author_id: uuid.UUID | None
@@ -213,7 +219,7 @@ class NoteOut(BaseModel):
     created_at: datetime
 
 
-class AuditOut(BaseModel):
+class AuditOut(Schema):
     model_config = ConfigDict(from_attributes=True)
     id: int
     at: datetime
@@ -226,7 +232,7 @@ class AuditOut(BaseModel):
     hash: str
 
 
-class PublicVacancy(BaseModel):
+class PublicVacancy(Schema):
     id: uuid.UUID
     title: str
     company: str
@@ -237,17 +243,82 @@ class PublicVacancy(BaseModel):
     created_at: datetime
 
 
-class ApplyOut(BaseModel):
+class ApplyOut(Schema):
     application_id: uuid.UUID
     status_token: str
 
 
-class StatusOut(BaseModel):
+class StatusOut(Schema):
     vacancy: str
     company: str
     stage: Literal["received", "in review", "interview", "offer", "hired", "closed"]
     updated_at: datetime
     cv_read: bool
+
+
+class SkillOut(Schema):
+    id: str
+    name: str
+    category: str
+
+
+class FunnelStep(Schema):
+    stage: str
+    reached: int
+    conversion: float | None  # share of the previous stage that reached this one
+
+
+class TimeToHire(Schema):
+    median_days: float | None
+    p90_days: float | None
+    hires: int
+
+
+class SourceStats(Schema):
+    source: str
+    applications: int
+    advanced: int
+    interview_rate: float
+
+
+class ScoreBucket(Schema):
+    low: float
+    high: float
+    count: int
+
+
+class CommonGap(Schema):
+    vacancy: str
+    requirement: str
+    applicants: int
+
+
+class OverviewOut(Schema):
+    applications: int
+    open_vacancies: int
+    qualified_applications: int
+    by_stage: dict[str, int]
+    funnel: list[FunnelStep]
+    time_to_hire: TimeToHire
+    sources: list[SourceStats]
+    score_distribution: list[ScoreBucket]
+    common_gaps: list[CommonGap]
+
+
+class AuditVerifyOut(Schema):
+    entries: int
+    valid: bool
+    first_bad_id: int | None
+    head: str | None
+
+
+class HealthOut(Schema):
+    status: Literal["ok", "degraded"]
+    database: bool
+    embedding_model: str
+    ocr: bool
+    native_matcher: bool
+    read_only: bool
 
 
 CandidateOut.model_rebuild()

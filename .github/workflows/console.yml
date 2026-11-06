@@ -1,0 +1,36 @@
+name: console
+
+on:
+  push:
+    branches: [main]
+    paths: ["console/**", "api/openapi.json", ".github/workflows/console.yml"]
+  pull_request:
+    paths: ["console/**", "api/openapi.json", ".github/workflows/console.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: console-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: console
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+      - run: npm ci
+      - name: API types match api/openapi.json
+        run: npm run api:types && git diff --exit-code -- src/app/api/schema.d.ts
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build

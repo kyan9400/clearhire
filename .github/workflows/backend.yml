@@ -3,9 +3,9 @@ name: backend
 on:
   push:
     branches: [main]
-    paths: ["backend/**", "native/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "native/**", "api/**", ".github/workflows/backend.yml"]
   pull_request:
-    paths: ["backend/**", "native/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "native/**", "api/**", ".github/workflows/backend.yml"]
 
 permissions:
   contents: read
@@ -35,6 +35,8 @@ jobs:
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
       - run: mypy
+      - name: api/openapi.json matches the code
+        run: clearhire openapi --out - | diff - ../api/openapi.json
 
   test:
     runs-on: ubuntu-24.04
