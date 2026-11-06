@@ -108,7 +108,6 @@ services:
     environment:
       CAREERS_HOST: ${CAREERS_HOST:?}
       CONSOLE_HOST: ${CONSOLE_HOST:?}
-      ACME_EMAIL: ${ACME_EMAIL:-}
     ports:
       - "80:80"
       - "443:443"
