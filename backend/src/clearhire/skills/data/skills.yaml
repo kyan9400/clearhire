@@ -1,0 +1,248 @@
+# Clearhire skill taxonomy: canonical skills, the words CVs and vacancies use for them, and what they imply.
+#
+#   id       stable identifier used everywhere else
+#   name     display name
+#   cat      category (language, backend, frontend, mobile, data, ml, database, devops, cloud, testing,
+#            practice, tool, design, security, blockchain, management)
+#   aka      aliases, matched case-insensitively on whole words ("ё" = "е"); a trailing "*" matches any
+#            word that starts with the alias, for Russian word forms ("докер*" matches "докере")
+#   strict   ambiguous aliases ("Go", "R", "REST") that only count as written, inside a list: between
+#            line starts or ends, commas, semicolons, slashes, pipes, bullets or brackets
+#   implies  skills a person with this skill also has (FastAPI implies Python)
+version: 1
+skills:
+  # ---- programming languages ----
+  - {id: python, name: Python, cat: language, aka: [python, python3, "python 3", питон*]}
+  - {id: java, name: Java, cat: language, aka: [java, "java se", "java ee", джава]}
+  - {id: javascript, name: JavaScript, cat: language, aka: [javascript, "java script", es6, es2015, ecmascript, vanilla js], strict: [JS]}
+  - {id: typescript, name: TypeScript, cat: language, aka: [typescript, "type script"], strict: [TS], implies: [javascript]}
+  - {id: go, name: Go, cat: language, aka: [golang, "go lang"], strict: [Go]}
+  - {id: rust, name: Rust, cat: language, aka: [rust, rustlang]}
+  - {id: c, name: C, cat: language, aka: ["ansi c", "c language", "c99", "c11"], strict: [C]}
+  - {id: cpp, name: C++, cat: language, aka: [c++, cpp, "c++11", "c++14", "c++17", "c++20", "с++"]}
+  - {id: csharp, name: C#, cat: language, aka: [c#, csharp, "c sharp", "с#"]}
+  - {id: php, name: PHP, cat: language, aka: [php, php7, php8, "php 7", "php 8"]}
+  - {id: ruby, name: Ruby, cat: language, aka: ["ruby lang", "ruby 3"], strict: [Ruby]}
+  - {id: kotlin, name: Kotlin, cat: language, aka: [kotlin, котлин]}
+  - {id: swift, name: Swift, cat: language, aka: [swift, "swift 5"]}
+  - {id: scala, name: Scala, cat: language, aka: [scala]}
+  - {id: r, name: R, cat: language, aka: ["r language", "r programming", "язык r", rstudio], strict: [R]}
+  - {id: sql, name: SQL, cat: language, aka: [sql, "t-sql", tsql, "pl/sql", plsql, "pl/pgsql"]}
+  - {id: bash, name: Bash, cat: language, aka: [bash, "shell scripting", "shell scripts", "bash scripting", zsh]}
+  - {id: dart, name: Dart, cat: language, aka: [dart]}
+  - {id: elixir, name: Elixir, cat: language, aka: [elixir]}
+  - {id: haskell, name: Haskell, cat: language, aka: [haskell]}
+  - {id: lua, name: Lua, cat: language, aka: [lua]}
+  - {id: perl, name: Perl, cat: language, aka: [perl]}
+  - {id: matlab, name: MATLAB, cat: language, aka: [matlab]}
+  - {id: objc, name: Objective-C, cat: language, aka: [objective-c, "objective c", objc]}
+  - {id: julia, name: Julia, cat: language, aka: ["julia lang", "julia language"], strict: [Julia]}
+  - {id: solidity, name: Solidity, cat: language, aka: [solidity]}
+  - {id: onec, name: 1C, cat: language, aka: ["1с", "1c", "1с:предприятие", "1c:enterprise", "1с предприятие"]}
+
+  # ---- backend ----
+  - {id: django, name: Django, cat: backend, aka: [django, джанго], implies: [python]}
+  - {id: drf, name: Django REST Framework, cat: backend, aka: ["django rest framework", drf, "django-rest-framework"], implies: [django, rest]}
+  - {id: fastapi, name: FastAPI, cat: backend, aka: [fastapi, "fast api"], implies: [python]}
+  - {id: flask, name: Flask, cat: backend, aka: [flask], implies: [python]}
+  - {id: aiohttp, name: aiohttp, cat: backend, aka: [aiohttp], implies: [python, asyncio]}
+  - {id: asyncio, name: asyncio, cat: backend, aka: [asyncio, "async python", "async/await", асинхронн*], implies: []}
+  - {id: celery, name: Celery, cat: backend, aka: [celery], implies: [python]}
+  - {id: sqlalchemy, name: SQLAlchemy, cat: backend, aka: [sqlalchemy, "sql alchemy"], implies: [python, sql]}
+  - {id: alembic, name: Alembic, cat: backend, aka: [alembic], implies: [sqlalchemy]}
+  - {id: pydantic, name: Pydantic, cat: backend, aka: [pydantic], implies: [python]}
+  - {id: spring, name: Spring, cat: backend, aka: ["spring boot", springboot, "spring framework", "spring mvc", "spring cloud", "spring data"], strict: [Spring], implies: [java]}
+  - {id: hibernate, name: Hibernate, cat: backend, aka: [hibernate, jpa], implies: [java]}
+  - {id: nodejs, name: Node.js, cat: backend, aka: [node.js, nodejs, "node js", нода], strict: [Node], implies: [javascript]}
+  - {id: express, name: Express, cat: backend, aka: [express.js, expressjs, "express js"], strict: [Express], implies: [nodejs]}
+  - {id: nestjs, name: NestJS, cat: backend, aka: [nestjs, nest.js, "nest js"], implies: [nodejs, typescript]}
+  - {id: laravel, name: Laravel, cat: backend, aka: [laravel], implies: [php]}
+  - {id: symfony, name: Symfony, cat: backend, aka: [symfony], implies: [php]}
+  - {id: yii, name: Yii, cat: backend, aka: [yii, yii2], implies: [php]}
+  - {id: rails, name: Ruby on Rails, cat: backend, aka: ["ruby on rails", ror, rails], implies: [ruby]}
+  - {id: dotnet, name: .NET, cat: backend, aka: [.net, dotnet, ".net core", ".net framework", "asp.net", "asp.net core"], implies: [csharp]}
+  - {id: gin, name: Gin, cat: backend, aka: ["gin gonic", gin-gonic], strict: [Gin], implies: [go]}
+  - {id: grpc, name: gRPC, cat: backend, aka: [grpc, protobuf, "protocol buffers"]}
+  - {id: graphql, name: GraphQL, cat: backend, aka: [graphql, "apollo graphql", "apollo client", "apollo server"]}
+  - {id: rest, name: REST API, cat: backend, aka: ["rest api", "rest apis", restful, "restful api", "rest-api", "rest-сервис*", "rest api design"], strict: [REST]}
+  - {id: websocket, name: WebSockets, cat: backend, aka: [websocket, websockets, "web sockets", socket.io]}
+  - {id: microservices, name: Microservices, cat: backend, aka: [microservices, microservice, "micro-services", микросервис*]}
+  - {id: rabbitmq, name: RabbitMQ, cat: backend, aka: [rabbitmq, "rabbit mq", amqp]}
+  - {id: kafka, name: Kafka, cat: backend, aka: [kafka, "apache kafka", кафк*]}
+  - {id: nginx, name: Nginx, cat: devops, aka: [nginx]}
+
+  # ---- frontend ----
+  - {id: html, name: HTML, cat: frontend, aka: [html, html5]}
+  - {id: css, name: CSS, cat: frontend, aka: [css, css3, flexbox, "css grid"]}
+  - {id: sass, name: Sass, cat: frontend, aka: [sass, scss], implies: [css]}
+  - {id: less, name: Less, cat: frontend, aka: ["less css"], strict: [Less, LESS], implies: [css]}
+  - {id: tailwind, name: Tailwind CSS, cat: frontend, aka: [tailwind, tailwindcss, "tailwind css"], implies: [css]}
+  - {id: bootstrap, name: Bootstrap, cat: frontend, aka: [bootstrap], implies: [css]}
+  - {id: react, name: React, cat: frontend, aka: [react, react.js, reactjs, "react js", "react 18", "react 19", реакт], implies: [javascript]}
+  - {id: redux, name: Redux, cat: frontend, aka: [redux, "redux toolkit", rtk], implies: [react]}
+  - {id: mobx, name: MobX, cat: frontend, aka: [mobx], implies: [react]}
+  - {id: nextjs, name: Next.js, cat: frontend, aka: [next.js, nextjs, "next js"], implies: [react]}
+  - {id: vue, name: Vue, cat: frontend, aka: [vue, vue.js, vuejs, "vue 3", vue3, vuex, pinia], implies: [javascript]}
+  - {id: nuxt, name: Nuxt, cat: frontend, aka: [nuxt, nuxt.js, nuxtjs], implies: [vue]}
+  - {id: angular, name: Angular, cat: frontend, aka: [angular, "angular 2+", "angular 17", "angular 18", "angular 19", "angular 20", ангуляр*], implies: [typescript]}
+  - {id: angularjs, name: AngularJS, cat: frontend, aka: [angularjs, "angular.js"], implies: [javascript]}
+  - {id: rxjs, name: RxJS, cat: frontend, aka: [rxjs]}
+  - {id: ngrx, name: NgRx, cat: frontend, aka: [ngrx], implies: [angular, rxjs]}
+  - {id: svelte, name: Svelte, cat: frontend, aka: [svelte, sveltekit], implies: [javascript]}
+  - {id: jquery, name: jQuery, cat: frontend, aka: [jquery], implies: [javascript]}
+  - {id: webpack, name: Webpack, cat: frontend, aka: [webpack]}
+  - {id: vite, name: Vite, cat: frontend, aka: [vite, vitejs]}
+  - {id: storybook, name: Storybook, cat: frontend, aka: [storybook]}
+  - {id: threejs, name: Three.js, cat: frontend, aka: [three.js, threejs, "react three fiber", r3f], implies: [javascript]}
+  - {id: webgl, name: WebGL, cat: frontend, aka: [webgl, glsl, shaders]}
+  - {id: d3, name: D3.js, cat: frontend, aka: [d3, d3.js, d3js], implies: [javascript]}
+  - {id: mui, name: Material UI, cat: frontend, aka: ["material ui", "material-ui", mui, "angular material"]}
+  - {id: antd, name: Ant Design, cat: frontend, aka: ["ant design", antd]}
+  - {id: a11y, name: Accessibility, cat: frontend, aka: [accessibility, a11y, wcag, "доступность интерфейс*"]}
+  - {id: pwa, name: PWA, cat: frontend, aka: [pwa, "progressive web app", "progressive web apps", "service workers"]}
+
+  # ---- mobile ----
+  - {id: android, name: Android, cat: mobile, aka: [android, "android sdk", андроид]}
+  - {id: ios, name: iOS, cat: mobile, aka: [ios, uikit, "ios sdk"]}
+  - {id: react_native, name: React Native, cat: mobile, aka: ["react native", react-native], implies: [react]}
+  - {id: flutter, name: Flutter, cat: mobile, aka: [flutter], implies: [dart]}
+  - {id: jetpack_compose, name: Jetpack Compose, cat: mobile, aka: ["jetpack compose"], implies: [kotlin, android]}
+  - {id: swiftui, name: SwiftUI, cat: mobile, aka: [swiftui], implies: [swift, ios]}
+
+  # ---- data and analytics ----
+  - {id: pandas, name: pandas, cat: data, aka: [pandas], implies: [python]}
+  - {id: numpy, name: NumPy, cat: data, aka: [numpy], implies: [python]}
+  - {id: scipy, name: SciPy, cat: data, aka: [scipy], implies: [python]}
+  - {id: matplotlib, name: Matplotlib, cat: data, aka: [matplotlib, seaborn], implies: [python, dataviz]}
+  - {id: plotly, name: Plotly, cat: data, aka: [plotly, dash], implies: [dataviz]}
+  - {id: jupyter, name: Jupyter, cat: data, aka: [jupyter, "jupyter notebook", jupyterlab, ipython]}
+  - {id: spark, name: Apache Spark, cat: data, aka: ["apache spark", pyspark, "spark sql"], strict: [Spark]}
+  - {id: hadoop, name: Hadoop, cat: data, aka: [hadoop, hdfs]}
+  - {id: airflow, name: Airflow, cat: data, aka: [airflow, "apache airflow"]}
+  - {id: dbt, name: dbt, cat: data, aka: [dbt]}
+  - {id: etl, name: ETL, cat: data, aka: [etl, elt, "data pipelines", "data pipeline"]}
+  - {id: dataviz, name: Data visualisation, cat: data, aka: ["data visualization", "data visualisation", визуализаци*]}
+  - {id: powerbi, name: Power BI, cat: data, aka: ["power bi", powerbi, dax]}
+  - {id: tableau, name: Tableau, cat: data, aka: [tableau]}
+  - {id: excel, name: Excel, cat: data, aka: [excel, "ms excel", "microsoft excel", "google sheets", vba]}
+  - {id: superset, name: Superset, cat: data, aka: [superset, "apache superset", metabase]}
+  - {id: statistics, name: Statistics, cat: data, aka: [statistics, statistical, статистик*, "hypothesis testing", "проверка гипотез"]}
+  - {id: ab_testing, name: A/B testing, cat: data, aka: ["a/b testing", "a/b tests", "a/b test", "ab testing", "a/b-тест*", "ab-тест*", "a/b тест*"]}
+  - {id: product_analytics, name: Product analytics, cat: data, aka: ["product analytics", "продуктовая аналитика", "продуктовой аналитик*", amplitude, mixpanel, "google analytics", "яндекс.метрика", "yandex metrica", "яндекс метрика"]}
+
+  # ---- machine learning and AI ----
+  - {id: ml, name: Machine learning, cat: ml, aka: ["machine learning", "машинное обучение", "машинного обучения", "машинным обучением"], strict: [ML]}
+  - {id: dl, name: Deep learning, cat: ml, aka: ["deep learning", "глубокое обучение", "глубокого обучения", "neural networks", "нейронные сети", "нейросет*"], strict: [DL], implies: [ml]}
+  - {id: pytorch, name: PyTorch, cat: ml, aka: [pytorch, torch], implies: [python, dl]}
+  - {id: tensorflow, name: TensorFlow, cat: ml, aka: [tensorflow, keras], implies: [python, dl]}
+  - {id: sklearn, name: scikit-learn, cat: ml, aka: [scikit-learn, sklearn, "scikit learn"], implies: [python, ml]}
+  - {id: gbm, name: Gradient boosting, cat: ml, aka: [xgboost, lightgbm, catboost, "gradient boosting", "градиентный бустинг"], implies: [ml]}
+  - {id: nlp, name: NLP, cat: ml, aka: [nlp, "natural language processing", "обработка естественного языка", spacy, nltk], implies: [ml]}
+  - {id: computer_vision, name: Computer vision, cat: ml, aka: ["computer vision", "компьютерное зрение", "компьютерного зрения", opencv, yolo], implies: [ml]}
+  - {id: llm, name: LLM, cat: ml, aka: [llm, llms, "large language model", "large language models", "языковые модели", "языковых моделей", "openai api", "gpt-4", "gpt-4o", gigachat, yandexgpt, "prompt engineering", "промпт-инжиниринг"]}
+  - {id: rag, name: RAG, cat: ml, aka: ["retrieval-augmented generation", "retrieval augmented generation"], strict: [RAG], implies: [llm]}
+  - {id: langchain, name: LangChain, cat: ml, aka: [langchain, langgraph], implies: [llm]}
+  - {id: llamaindex, name: LlamaIndex, cat: ml, aka: [llamaindex, "llama index", llama-index], implies: [llm]}
+  - {id: hf_transformers, name: Hugging Face Transformers, cat: ml, aka: ["hugging face", huggingface, "hf transformers", "transformers library"], implies: [python, dl]}
+  - {id: embeddings, name: Embeddings, cat: ml, aka: [embeddings, sentence-transformers, "sentence transformers", "semantic search", "семантический поиск", "векторный поиск", "vector search"]}
+  - {id: faiss, name: FAISS, cat: ml, aka: [faiss], implies: [embeddings]}
+  - {id: ocr, name: OCR, cat: ml, aka: [ocr, tesseract, "optical character recognition", "распознавание текст*"]}
+  - {id: mlops, name: MLOps, cat: ml, aka: [mlops, mlflow, kubeflow, "model serving", "triton inference server"]}
+  - {id: agents, name: AI agents, cat: ml, aka: ["ai agents", "ai agent", "llm agents", "multi-agent", "мультиагентн*", "tool calling", "function calling"], implies: [llm]}
+
+  # ---- databases ----
+  - {id: postgresql, name: PostgreSQL, cat: database, aka: [postgresql, postgres, "postgre sql", psql, постгрес*], strict: [PG], implies: [sql]}
+  - {id: mysql, name: MySQL, cat: database, aka: [mysql, mariadb], implies: [sql]}
+  - {id: sqlite, name: SQLite, cat: database, aka: [sqlite], implies: [sql]}
+  - {id: mssql, name: MS SQL Server, cat: database, aka: ["ms sql", mssql, "sql server", "microsoft sql server"], implies: [sql]}
+  - {id: oracle, name: Oracle Database, cat: database, aka: ["oracle database", "oracle db"], strict: [Oracle], implies: [sql]}
+  - {id: mongodb, name: MongoDB, cat: database, aka: [mongodb, mongo, mongoose, монго*]}
+  - {id: redis, name: Redis, cat: database, aka: [redis, редис*]}
+  - {id: elasticsearch, name: Elasticsearch, cat: database, aka: [elasticsearch, "elastic search", opensearch, эластик*]}
+  - {id: clickhouse, name: ClickHouse, cat: database, aka: [clickhouse, "click house"], implies: [sql]}
+  - {id: cassandra, name: Cassandra, cat: database, aka: [cassandra, scylladb]}
+  - {id: neo4j, name: Neo4j, cat: database, aka: [neo4j, cypher]}
+  - {id: pgvector, name: pgvector, cat: database, aka: [pgvector], implies: [postgresql, embeddings]}
+  - {id: vector_db, name: Vector databases, cat: database, aka: [qdrant, milvus, weaviate, chromadb, "chroma db", pinecone, "vector database", "vector databases", "векторные базы", "векторных баз"], implies: [embeddings]}
+  - {id: nosql, name: NoSQL, cat: database, aka: [nosql, "no-sql"]}
+
+  # ---- DevOps and cloud ----
+  - {id: docker, name: Docker, cat: devops, aka: [docker, "docker compose", docker-compose, dockerfile, докер*]}
+  - {id: kubernetes, name: Kubernetes, cat: devops, aka: [kubernetes, k8s, kubectl, k3s, openshift, кубернетес*], implies: [docker]}
+  - {id: helm, name: Helm, cat: devops, aka: ["helm charts", "helm chart"], strict: [Helm], implies: [kubernetes]}
+  - {id: terraform, name: Terraform, cat: devops, aka: [terraform, opentofu]}
+  - {id: ansible, name: Ansible, cat: devops, aka: [ansible]}
+  - {id: linux, name: Linux, cat: devops, aka: [linux, ubuntu, debian, centos, "red hat", линукс*]}
+  - {id: cicd, name: CI/CD, cat: devops, aka: ["ci/cd", "ci cd", "ci / cd", "continuous integration", "continuous delivery", "continuous deployment"]}
+  - {id: github_actions, name: GitHub Actions, cat: devops, aka: ["github actions", "github action"], implies: [cicd, github]}
+  - {id: gitlab_ci, name: GitLab CI, cat: devops, aka: ["gitlab ci", "gitlab-ci", "gitlab ci/cd"], implies: [cicd, gitlab]}
+  - {id: jenkins, name: Jenkins, cat: devops, aka: ["jenkins pipeline", "jenkins ci"], strict: [Jenkins], implies: [cicd]}
+  - {id: prometheus, name: Prometheus, cat: devops, aka: [prometheus, promql]}
+  - {id: grafana, name: Grafana, cat: devops, aka: [grafana]}
+  - {id: elk, name: ELK, cat: devops, aka: [elk, kibana, logstash, "elastic stack"]}
+  - {id: sentry, name: Sentry, cat: devops, aka: [sentry]}
+  - {id: observability, name: Observability, cat: devops, aka: [observability, opentelemetry, otel, jaeger, "distributed tracing", "monitoring and alerting", "мониторинг и алертинг", алертинг*]}
+  - {id: aws, name: AWS, cat: cloud, aka: [aws, "amazon web services", ec2, "amazon s3", "aws s3", "aws lambda", ecs, eks, cloudformation]}
+  - {id: gcp, name: Google Cloud, cat: cloud, aka: [gcp, "google cloud", "google cloud platform", bigquery]}
+  - {id: azure, name: Azure, cat: cloud, aka: [azure, "microsoft azure"]}
+  - {id: yandex_cloud, name: Yandex Cloud, cat: cloud, aka: ["yandex cloud", "яндекс облако", "яндекс.облако", "yandex.cloud"]}
+  - {id: serverless, name: Serverless, cat: cloud, aka: [serverless, "cloud functions", vercel]}
+
+  # ---- testing ----
+  - {id: unit_testing, name: Unit testing, cat: testing, aka: ["unit testing", "unit tests", "unit-тест*", "юнит-тест*", "модульные тесты", "модульных тестов", "модульное тестирование", "модульного тестирования"]}
+  - {id: pytest, name: pytest, cat: testing, aka: [pytest], implies: [python, unit_testing]}
+  - {id: jest, name: Jest, cat: testing, aka: [jest], implies: [javascript, unit_testing]}
+  - {id: vitest, name: Vitest, cat: testing, aka: [vitest], implies: [unit_testing]}
+  - {id: junit, name: JUnit, cat: testing, aka: [junit, testng], implies: [java, unit_testing]}
+  - {id: cypress, name: Cypress, cat: testing, aka: [cypress], implies: [e2e_testing]}
+  - {id: playwright, name: Playwright, cat: testing, aka: [playwright], implies: [e2e_testing]}
+  - {id: selenium, name: Selenium, cat: testing, aka: [selenium, webdriver, selenide], implies: [e2e_testing]}
+  - {id: e2e_testing, name: End-to-end testing, cat: testing, aka: ["e2e", "end-to-end testing", "end to end testing", "e2e-тест*", "автотест*", "test automation", "автоматизация тестирования", "автоматизации тестирования", "автоматизацией тестирования"]}
+  - {id: load_testing, name: Load testing, cat: testing, aka: ["load testing", "нагрузочное тестирование", "нагрузочного тестирования", "нагрузочным тестированием", jmeter, locust, k6, gatling]}
+  - {id: manual_testing, name: Manual testing, cat: testing, aka: ["manual testing", "ручное тестирование", "ручного тестирования", "test cases", "тест-кейс*", "чек-лист*"]}
+  - {id: allure, name: Allure, cat: testing, aka: [allure, "testops"]}
+  - {id: postman, name: Postman, cat: testing, aka: [postman, insomnia]}
+
+  # ---- practices ----
+  - {id: oop, name: OOP, cat: practice, aka: [oop, "object-oriented programming", "object oriented programming", ооп]}
+  - {id: solid, name: SOLID, cat: practice, aka: ["solid principles", "принципы solid"], strict: [SOLID]}
+  - {id: design_patterns, name: Design patterns, cat: practice, aka: ["design patterns", "паттерны проектирования", "шаблоны проектирования", gof]}
+  - {id: system_design, name: System design, cat: practice, aka: ["system design", "системный дизайн", "проектирование систем", "high load", highload, "высоконагруженн*"]}
+  - {id: ddd, name: DDD, cat: practice, aka: [ddd, "domain-driven design", "domain driven design"]}
+  - {id: clean_architecture, name: Clean architecture, cat: practice, aka: ["clean architecture", "чистая архитектура", "hexagonal architecture", "гексагональная архитектура", "гексагональной архитектуры"]}
+  - {id: tdd, name: TDD, cat: practice, aka: [tdd, "test-driven development", "test driven development"]}
+  - {id: code_review, name: Code review, cat: practice, aka: ["code review", "code reviews", "код-ревью", "код ревью", "ревью кода"]}
+  - {id: agile, name: Agile, cat: practice, aka: [agile, аджайл, "гибкие методологии"]}
+  - {id: scrum, name: Scrum, cat: practice, aka: [scrum, скрам], implies: [agile]}
+  - {id: kanban, name: Kanban, cat: practice, aka: [kanban, канбан], implies: [agile]}
+  - {id: git, name: Git, cat: tool, aka: [git, "git flow", gitflow]}
+  - {id: github, name: GitHub, cat: tool, aka: [github], implies: [git]}
+  - {id: gitlab, name: GitLab, cat: tool, aka: [gitlab], implies: [git]}
+  - {id: jira, name: Jira, cat: tool, aka: [jira, джира, "youtrack"]}
+  - {id: confluence, name: Confluence, cat: tool, aka: [confluence]}
+  - {id: openapi, name: OpenAPI, cat: tool, aka: [openapi, swagger, "open api"]}
+
+  # ---- security ----
+  - {id: oauth, name: OAuth 2.0 / OIDC, cat: security, aka: [oauth, oauth2, "oauth 2.0", openid, "openid connect", oidc, keycloak, sso]}
+  - {id: jwt, name: JWT, cat: security, aka: [jwt, "json web token", "json web tokens"]}
+  - {id: owasp, name: OWASP, cat: security, aka: [owasp, "owasp top 10", "web security", "веб-безопасност*", xss, csrf, "sql injection"]}
+
+  # ---- blockchain ----
+  - {id: ethereum, name: Ethereum, cat: blockchain, aka: [ethereum, evm, web3, web3.js, ethers.js, "ethers js", "смарт-контракт*", "smart contract", "smart contracts"]}
+  - {id: hardhat, name: Hardhat, cat: blockchain, aka: [hardhat, foundry, truffle], implies: [solidity, ethereum]}
+
+  # ---- design ----
+  - {id: figma, name: Figma, cat: design, aka: [figma, фигма*]}
+  - {id: ux, name: UX research, cat: design, aka: ["ux research", "ux-исследован*", "user research", "usability testing", "customer development", "custdev", cjm, "customer journey map"]}
+  - {id: ui_design, name: UI design, cat: design, aka: ["ui design", "ui/ux", "ux/ui", "interface design", "дизайн интерфейс*", "веб-дизайн", "web design"]}
+  - {id: prototyping, name: Prototyping, cat: design, aka: [prototyping, прототипирован*, wireframes, wireframing]}
+  - {id: adobe, name: Adobe Creative Suite, cat: design, aka: [photoshop, illustrator, "after effects", "adobe xd", "adobe creative suite", indesign]}
+  - {id: design_systems, name: Design systems, cat: design, aka: ["design system", "design systems", "дизайн-систем*", "ui kit", "ui-kit"]}
+
+  # ---- management ----
+  - {id: team_lead, name: Team leadership, cat: management, aka: ["team lead", teamlead, "tech lead", techlead, тимлид*, техлид*, "team leadership", "led a team", "leading a team", "managed a team", "руководство командой", "руководства командой", "руководил командой", "руководила командой", "управлял командой", "управляла командой", mentoring, менторинг*, наставничеств*]}
+  - {id: product_management, name: Product management, cat: management, aka: ["product management", "product manager", "управление продуктом", "product roadmap", roadmapping, "product discovery", "продуктовый менеджмент"]}
+  - {id: project_management, name: Project management, cat: management, aka: ["project management", "project manager", "управление проектами", "управления проектами", pmbok, waterfall]}
+  - {id: stakeholder_management, name: Stakeholder management, cat: management, aka: ["stakeholder management", "работа со стейкхолдерами", "управление стейкхолдерами", "stakeholders"]}
+  - {id: hiring, name: Hiring and interviewing, cat: management, aka: ["technical interviews", "conducting interviews", "проведение собеседований", "проводил собеседования", "проводила собеседования", "найм", recruiting]}
+  - {id: requirements, name: Requirements analysis, cat: management, aka: ["requirements analysis", "business analysis", "сбор требований", "бизнес-анализ", "системный анализ", "техническое задание", "технических заданий", "user stories", bpmn, uml]}

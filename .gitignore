@@ -17,5 +17,5 @@ out/
 .env
 .env.*
 !.env.example
-data/
+/backend/data/
 *.log
