@@ -1,5 +1,5 @@
 # Development infrastructure: PostgreSQL with pgvector, and Redis. Ports are unusual on purpose, so they
-# never clash with other local databases. The full stack (API, worker, console, portal, bot) is in
+# never clash with other local databases (and sit below the Windows dynamic range, which Hyper-V reserves). The full stack (API, worker, console, portal, bot) is in
 # deploy/compose.yaml.
 name: clearhire-dev
 
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: clearhire
       POSTGRES_DB: clearhire
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:25432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
   redis:
     image: redis:7.4-alpine
     ports:
-      - "127.0.0.1:56379:6379"
+      - "127.0.0.1:26379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s

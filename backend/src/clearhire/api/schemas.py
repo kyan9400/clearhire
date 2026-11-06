@@ -232,6 +232,13 @@ class AuditOut(Schema):
     hash: str
 
 
+class PublicRequirement(Schema):
+    id: str
+    text: str
+    kind: str
+    must: bool
+
+
 class PublicVacancy(Schema):
     id: uuid.UUID
     title: str
@@ -241,6 +248,7 @@ class PublicVacancy(Schema):
     language: str
     description: str
     created_at: datetime
+    requirements: list[PublicRequirement]
 
 
 class ApplyOut(Schema):
@@ -248,12 +256,42 @@ class ApplyOut(Schema):
     status_token: str
 
 
+class CheckItem(Schema):
+    """One requirement, what was found in the candidate's own CV, and the lines that show it."""
+
+    requirement_id: str
+    text: str
+    must: bool
+    status: Literal["met", "partial", "missing"]
+    detail: str
+    evidence: list[EvidenceOut]
+
+
+class PrecheckOut(Schema):
+    must_met: int
+    must_total: int
+    qualified: bool  # every must-have is fully met
+    experience_months: int
+    skills: list[str]  # names of the skills read from the CV
+    items: list[CheckItem]
+
+
+PublicStage = Literal["received", "in review", "interview", "offer", "hired", "closed"]
+
+
+class StatusStep(Schema):
+    stage: PublicStage
+    at: datetime
+
+
 class StatusOut(Schema):
     vacancy: str
     company: str
-    stage: Literal["received", "in review", "interview", "offer", "hired", "closed"]
+    stage: PublicStage
     updated_at: datetime
     cv_read: bool
+    timeline: list[StatusStep]
+    items: list[CheckItem]  # empty until the CV has been read
 
 
 class SkillOut(Schema):

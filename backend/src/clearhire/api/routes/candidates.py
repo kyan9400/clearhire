@@ -4,14 +4,14 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, Response, UploadFile, status
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 
 from clearhire import audit
 from clearhire.api.deps import Recruiter, Session, Shared, Staff, Writable, pseudonym, sees_personal_data
 from clearhire.api.schemas import ApplicationOut, CandidateOut, SearchHit
 from clearhire.db.models import Application, Candidate, Document, Profile, Source, Stage, StageEvent, Vacancy
 from clearhire.security import status_token
-from clearhire.services.pipeline import UploadRejected, add_candidate
+from clearhire.services.pipeline import UploadRejected, add_candidate, erase_candidate
 from clearhire.tasks import enqueue_parse
 
 router = APIRouter(prefix="/api/candidates", tags=["candidates"])
@@ -222,25 +222,7 @@ async def download_cv(
 
 @router.delete("/{candidate_id}", status_code=204, dependencies=[Writable])
 async def erase(candidate_id: uuid.UUID, session: Session, services: Shared, user: Recruiter) -> Response:
-    """Right to erasure (152-FZ art. 21): the candidate, their files, profile, passages and matches are
-    deleted. The audit log keeps that it happened, never what was deleted."""
+    """Right to erasure (152-FZ art. 21), on the candidate's request to the recruiter."""
     candidate = await _candidate(session, candidate_id)
-    keys = list(
-        (
-            await session.execute(select(Document.storage_key).where(Document.candidate_id == candidate_id))
-        ).scalars()
-    )
-    # one statement; PostgreSQL's ON DELETE CASCADE removes documents, profile, passages, applications and matches
-    await session.execute(delete(Candidate).where(Candidate.id == candidate.id))
-    await audit.record(
-        session, "candidate.erased", "candidate", candidate_id, actor_id=user.id, data={"files": len(keys)}
-    )
-    await session.commit()
-    services.matcher.forget(candidate_id)
-    shared = set(
-        (await session.execute(select(Document.storage_key).where(Document.storage_key.in_(keys)))).scalars()
-    )
-    for key in keys:
-        if key not in shared:  # the same file can belong to another candidate (identical upload)
-            services.store.delete(key)
+    await erase_candidate(session, services, candidate.id, actor=("user", user.id))
     return Response(status_code=204)

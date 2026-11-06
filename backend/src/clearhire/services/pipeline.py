@@ -153,3 +153,27 @@ async def process_document(session: AsyncSession, services: Services, document_i
                            })  # fmt: skip
     await session.commit()
     return document
+
+
+async def erase_candidate(
+    session: AsyncSession, services: Services, candidate_id: uuid.UUID, *, actor: tuple[str, object | None]
+) -> None:
+    """Right to erasure (152-FZ art. 21): the candidate, their files, profile, passages and matches are
+    deleted. The audit log keeps that it happened, never what was deleted."""
+    keys = list(
+        (
+            await session.execute(select(Document.storage_key).where(Document.candidate_id == candidate_id))
+        ).scalars()
+    )
+    # one statement; PostgreSQL's ON DELETE CASCADE removes documents, profile, passages, applications and matches
+    await session.execute(delete(Candidate).where(Candidate.id == candidate_id))
+    await audit.record(session, "candidate.erased", "candidate", candidate_id, actor_type=actor[0],
+                       actor_id=actor[1], data={"files": len(keys)})  # fmt: skip
+    await session.commit()
+    services.matcher.forget(candidate_id)
+    shared = set(
+        (await session.execute(select(Document.storage_key).where(Document.storage_key.in_(keys)))).scalars()
+    )
+    for key in keys:
+        if key not in shared:  # the same file can belong to another candidate (identical upload)
+            services.store.delete(key)

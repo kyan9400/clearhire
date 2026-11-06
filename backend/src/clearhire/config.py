@@ -14,7 +14,7 @@ DEV_SECRET = "clearhire-development-secret-change-me-0123456789"  # noqa: S105 -
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CLEARHIRE_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+asyncpg://clearhire:clearhire@localhost:55432/clearhire"
+    database_url: str = "postgresql+asyncpg://clearhire:clearhire@localhost:25432/clearhire"
     redis_url: str | None = None  # without Redis, background jobs run inside the API process
     embedding_model: str = "intfloat/multilingual-e5-small"
     ocr_languages: str = "eng+rus"

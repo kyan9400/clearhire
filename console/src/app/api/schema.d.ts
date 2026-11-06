@@ -225,8 +225,7 @@ export interface paths {
         post?: never;
         /**
          * Erase
-         * @description Right to erasure (152-FZ art. 21): the candidate, their files, profile, passages and matches are
-         *     deleted. The audit log keeps that it happened, never what was deleted.
+         * @description Right to erasure (152-FZ art. 21), on the candidate's request to the recruiter.
          */
         delete: operations["erase_api_candidates__candidate_id__delete"];
         options?: never;
@@ -439,6 +438,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/vacancies/{vacancy_id}/precheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Precheck
+         * @description Check a CV against the vacancy before applying. The file is read in memory and nothing is kept, so
+         *     no consent is needed; the same matcher the recruiter uses gives the answer.
+         */
+        post: operations["precheck_api_public_vacancies__vacancy_id__precheck_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/vacancies/{vacancy_id}/apply": {
         parameters: {
             query?: never;
@@ -466,11 +486,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Application Status */
+        /**
+         * Application Status
+         * @description Where the application is, and the same requirement-by-requirement reading the recruiter sees.
+         */
         get: operations["application_status_api_public_status__token__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Withdraw
+         * @description Withdraw consent: the candidate erases their applications, CV and profile themselves.
+         */
+        delete: operations["withdraw_api_public_status__token__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -583,6 +610,11 @@ export interface components {
             /** Telegram */
             telegram?: string | null;
         };
+        /** Body_precheck_api_public_vacancies__vacancy_id__precheck_post */
+        Body_precheck_api_public_vacancies__vacancy_id__precheck_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_api_candidates_post */
         Body_upload_api_candidates_post: {
             /** File */
@@ -635,6 +667,27 @@ export interface components {
             };
             /** Applications */
             applications: components["schemas"]["ApplicationOut"][];
+        };
+        /**
+         * CheckItem
+         * @description One requirement, what was found in the candidate's own CV, and the lines that show it.
+         */
+        CheckItem: {
+            /** Requirement Id */
+            requirement_id: string;
+            /** Text */
+            text: string;
+            /** Must */
+            must: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "met" | "partial" | "missing";
+            /** Detail */
+            detail: string;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceOut"][];
         };
         /** CommonGap */
         CommonGap: {
@@ -778,6 +831,32 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** PrecheckOut */
+        PrecheckOut: {
+            /** Must Met */
+            must_met: number;
+            /** Must Total */
+            must_total: number;
+            /** Qualified */
+            qualified: boolean;
+            /** Experience Months */
+            experience_months: number;
+            /** Skills */
+            skills: string[];
+            /** Items */
+            items: components["schemas"]["CheckItem"][];
+        };
+        /** PublicRequirement */
+        PublicRequirement: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Kind */
+            kind: string;
+            /** Must */
+            must: boolean;
+        };
         /** PublicVacancy */
         PublicVacancy: {
             /**
@@ -802,6 +881,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Requirements */
+            requirements: components["schemas"]["PublicRequirement"][];
         };
         /** RankedCandidate */
         RankedCandidate: {
@@ -1030,6 +1111,23 @@ export interface components {
             updated_at: string;
             /** Cv Read */
             cv_read: boolean;
+            /** Timeline */
+            timeline: components["schemas"]["StatusStep"][];
+            /** Items */
+            items: components["schemas"]["CheckItem"][];
+        };
+        /** StatusStep */
+        StatusStep: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "received" | "in review" | "interview" | "offer" | "hired" | "closed";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
         /** TimeToHire */
         TimeToHire: {
@@ -2065,6 +2163,41 @@ export interface operations {
             };
         };
     };
+    precheck_api_public_vacancies__vacancy_id__precheck_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vacancy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_precheck_api_public_vacancies__vacancy_id__precheck_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     apply_api_public_vacancies__vacancy_id__apply_post: {
         parameters: {
             query?: never;
@@ -2119,6 +2252,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StatusOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_api_public_status__token__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -1,7 +1,7 @@
 """The HTTP API against a real PostgreSQL with pgvector (set CLEARHIRE_TEST_DATABASE_URL).
 
 docker compose up -d postgres
-CLEARHIRE_TEST_DATABASE_URL=postgresql+asyncpg://clearhire:clearhire@localhost:55432/clearhire_test pytest
+CLEARHIRE_TEST_DATABASE_URL=postgresql+asyncpg://clearhire:clearhire@localhost:25432/clearhire_test pytest
 """
 
 from __future__ import annotations
@@ -81,6 +81,7 @@ async def api(
     from clearhire.api.routes import public
 
     public.limiter.hits.clear()
+    public.precheck_limiter.hits.clear()
     app = app_module.create_app()
     async with (
         app.router.lifespan_context(app),
@@ -214,9 +215,16 @@ async def test_public_application_flow(api: httpx.AsyncClient) -> None:
     files = {"file": ("cv.txt", RUSSIAN_CV.encode(), "text/plain")}
     response = await api.post(f"/api/public/vacancies/{created['id']}/apply", data=form(), files=files)
     assert response.status_code == 201, response.text
-    status = (await api.get(f"/api/public/status/{response.json()['status_token']}")).json()
-    assert status == {"vacancy": "Senior Python Developer", "company": "Acme", "stage": "received",
-                      "updated_at": status["updated_at"], "cv_read": True}  # fmt: skip
+    token = response.json()["status_token"]
+    status = (await api.get(f"/api/public/status/{token}")).json()
+    assert (status["vacancy"], status["company"], status["stage"], status["cv_read"]) == (
+        "Senior Python Developer", "Acme", "received", True,
+    )  # fmt: skip
+    assert [s["stage"] for s in status["timeline"]] == ["received"]
+    # the candidate sees the same reading the recruiter does, with the lines of their own CV
+    kafka = next(i for i in status["items"] if "Kafka" in i["text"])
+    assert kafka["status"] == "met" and kafka["must"] is True
+    assert any("Kafka" in e["quote"] for e in kafka["evidence"])
     assert (await api.get("/api/public/status/not-a-token")).status_code == 404
     refused = await api.post(f"/api/public/vacancies/{created['id']}/apply", data=form("false"), files=files)
     assert refused.status_code == 422
@@ -224,6 +232,43 @@ async def test_public_application_flow(api: httpx.AsyncClient) -> None:
     assert (
         await api.post(f"/api/public/vacancies/{created['id']}/apply", data=form(), files=binary)
     ).status_code == 422
+
+
+async def test_a_cv_can_be_checked_before_applying_and_nothing_is_kept(
+    api: httpx.AsyncClient, tmp_path: Path
+) -> None:
+    recruiter = await login(api, "recruiter")
+    created = await vacancy(api, recruiter)
+    public = (await api.get(f"/api/public/vacancies/{created['id']}")).json()
+    assert {r["must"] for r in public["requirements"]} == {True, False}
+    files = {"file": ("cv.txt", RUSSIAN_CV.encode(), "text/plain")}
+    response = await api.post(f"/api/public/vacancies/{created['id']}/precheck", files=files)
+    assert response.status_code == 200, response.text
+    check = response.json()
+    assert check["must_total"] == sum(r["must"] for r in public["requirements"])
+    assert "Python" in check["skills"] and check["experience_months"] > 60
+    assert len(check["items"]) == len(public["requirements"])
+    assert not any(f.is_file() for f in (tmp_path / "files").rglob("*"))
+    assert (await api.get("/api/candidates", headers=recruiter)).json() == []
+    empty = {"file": ("cv.txt", b"   ", "text/plain")}
+    assert (await api.post(f"/api/public/vacancies/{created['id']}/precheck", files=empty)).status_code == 422
+
+
+async def test_candidates_can_erase_their_own_data(api: httpx.AsyncClient, tmp_path: Path) -> None:
+    recruiter = await login(api, "recruiter")
+    created = await vacancy(api, recruiter)
+    response = await api.post(
+        f"/api/public/vacancies/{created['id']}/apply",
+        data={"full_name": "Anna Smirnova", "email": "anna@example.com", "consent": "true"},
+        files={"file": ("cv.txt", RUSSIAN_CV.encode(), "text/plain")},
+    )
+    token = response.json()["status_token"]
+    assert (await api.delete(f"/api/public/status/{token}")).status_code == 204
+    assert (await api.get(f"/api/public/status/{token}")).status_code == 404
+    assert (await api.get("/api/candidates", headers=recruiter)).json() == []
+    assert not any(f.is_file() for f in (tmp_path / "files").rglob("*"))
+    erased = (await api.get("/api/audit", params={"action": "candidate.erased"}, headers=recruiter)).json()
+    assert erased[0]["actor_type"] == "candidate"
 
 
 async def test_applications_are_rate_limited(api: httpx.AsyncClient) -> None:

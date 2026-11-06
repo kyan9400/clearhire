@@ -872,7 +872,7 @@
           "candidates"
         ],
         "summary": "Erase",
-        "description": "Right to erasure (152-FZ art. 21): the candidate, their files, profile, passages and matches are\ndeleted. The audit log keeps that it happened, never what was deleted.",
+        "description": "Right to erasure (152-FZ art. 21), on the candidate's request to the recruiter.",
         "operationId": "erase_api_candidates__candidate_id__delete",
         "security": [
           {
@@ -1508,6 +1508,60 @@
         }
       }
     },
+    "/api/public/vacancies/{vacancy_id}/precheck": {
+      "post": {
+        "tags": [
+          "careers site"
+        ],
+        "summary": "Precheck",
+        "description": "Check a CV against the vacancy before applying. The file is read in memory and nothing is kept, so\nno consent is needed; the same matcher the recruiter uses gives the answer.",
+        "operationId": "precheck_api_public_vacancies__vacancy_id__precheck_post",
+        "parameters": [
+          {
+            "name": "vacancy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vacancy Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_precheck_api_public_vacancies__vacancy_id__precheck_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrecheckOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/vacancies/{vacancy_id}/apply": {
       "post": {
         "tags": [
@@ -1568,6 +1622,7 @@
           "careers site"
         ],
         "summary": "Application Status",
+        "description": "Where the application is, and the same requirement-by-requirement reading the recruiter sees.",
         "operationId": "application_status_api_public_status__token__get",
         "parameters": [
           {
@@ -1590,6 +1645,40 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "careers site"
+        ],
+        "summary": "Withdraw",
+        "description": "Withdraw consent: the candidate erases their applications, CV and profile themselves.",
+        "operationId": "withdraw_api_public_status__token__delete",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -1840,6 +1929,20 @@
         ],
         "title": "Body_apply_api_public_vacancies__vacancy_id__apply_post"
       },
+      "Body_precheck_api_public_vacancies__vacancy_id__precheck_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_precheck_api_public_vacancies__vacancy_id__precheck_post"
+      },
       "Body_upload_api_candidates_post": {
         "properties": {
           "file": {
@@ -2002,6 +2105,53 @@
           "applications"
         ],
         "title": "CandidateOut"
+      },
+      "CheckItem": {
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "title": "Requirement Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "must": {
+            "type": "boolean",
+            "title": "Must"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "met",
+              "partial",
+              "missing"
+            ],
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceOut"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "text",
+          "must",
+          "status",
+          "detail",
+          "evidence"
+        ],
+        "title": "CheckItem",
+        "description": "One requirement, what was found in the candidate's own CV, and the lines that show it."
       },
       "CommonGap": {
         "properties": {
@@ -2382,6 +2532,78 @@
         ],
         "title": "ParseRequirementsIn"
       },
+      "PrecheckOut": {
+        "properties": {
+          "must_met": {
+            "type": "integer",
+            "title": "Must Met"
+          },
+          "must_total": {
+            "type": "integer",
+            "title": "Must Total"
+          },
+          "qualified": {
+            "type": "boolean",
+            "title": "Qualified"
+          },
+          "experience_months": {
+            "type": "integer",
+            "title": "Experience Months"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "must_met",
+          "must_total",
+          "qualified",
+          "experience_months",
+          "skills",
+          "items"
+        ],
+        "title": "PrecheckOut"
+      },
+      "PublicRequirement": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "must": {
+            "type": "boolean",
+            "title": "Must"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "kind",
+          "must"
+        ],
+        "title": "PublicRequirement"
+      },
       "PublicVacancy": {
         "properties": {
           "id": {
@@ -2417,6 +2639,13 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PublicRequirement"
+            },
+            "type": "array",
+            "title": "Requirements"
           }
         },
         "type": "object",
@@ -2428,7 +2657,8 @@
           "remote",
           "language",
           "description",
-          "created_at"
+          "created_at",
+          "requirements"
         ],
         "title": "PublicVacancy"
       },
@@ -3043,6 +3273,20 @@
           "cv_read": {
             "type": "boolean",
             "title": "Cv Read"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/StatusStep"
+            },
+            "type": "array",
+            "title": "Timeline"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckItem"
+            },
+            "type": "array",
+            "title": "Items"
           }
         },
         "type": "object",
@@ -3051,9 +3295,38 @@
           "company",
           "stage",
           "updated_at",
-          "cv_read"
+          "cv_read",
+          "timeline",
+          "items"
         ],
         "title": "StatusOut"
+      },
+      "StatusStep": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "received",
+              "in review",
+              "interview",
+              "offer",
+              "hired",
+              "closed"
+            ],
+            "title": "Stage"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "at"
+        ],
+        "title": "StatusStep"
       },
       "TimeToHire": {
         "properties": {
