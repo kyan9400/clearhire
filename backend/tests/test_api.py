@@ -16,11 +16,13 @@ from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from clearhire import tasks
+from clearhire.assistant.llm import Reply, ToolCall
 from clearhire.config import get_settings
 from clearhire.db import session as db_session
 from clearhire.db.models import AuditEntry, Base, Role, User
 from clearhire.security import hash_password
 from conftest import RUSSIAN_CV, VACANCY
+from test_assistant import Scripted
 
 pytestmark = pytest.mark.postgres
 PASSWORD = "correct horse battery staple"
@@ -320,6 +322,61 @@ async def test_tampering_with_the_audit_log_is_detected(api: httpx.AsyncClient) 
     verified = (await api.get("/api/audit/verify", headers=recruiter)).json()
     assert verified["valid"] is False
     assert verified["first_bad_id"] == target
+
+
+async def test_assistant_summaries_and_questions(api: httpx.AsyncClient) -> None:
+    recruiter = await login(api, "recruiter")
+    created = await vacancy(api, recruiter)
+    candidate = await upload(api, recruiter, str(created["id"]))
+    base = f"/api/vacancies/{created['id']}/matches/{candidate['id']}"
+    assert (await api.get("/api/assistant", headers=recruiter)).json() == {"enabled": False, "model": None}
+
+    # without a model: a plain summary from the verdicts, and questions are unavailable
+    plain = (await api.post(f"{base}/summary", headers=recruiter)).json()
+    assert plain["model"] == "rules" and plain["sentences"] and not plain["cached"]
+    assert (await api.post(f"{base}/summary", headers=recruiter)).json()["cached"] is True
+    assert (await api.post(f"{base}/ask", json={"question": "Kafka?"}, headers=recruiter)).status_code == 503
+
+    services = api._transport.app.state.services  # type: ignore[attr-defined]
+    model = Scripted([
+        Reply("Strong Python background [R1]. Has FastAPI and Django [R2]. Missing Go [R8]."),
+        Reply("", [ToolCall("c1", "search_cv", {"query": "Kafka"})]),
+        Reply("Yes, Kafka consumers for payments [P1]."),
+    ])  # fmt: skip
+    services.llm = model
+    try:
+        written = (
+            await api.post(f"{base}/summary", headers=recruiter)
+        ).json()  # the model replaces the plain one
+        assert written["model"] == "scripted" and len(written["sentences"]) >= 2 and not written["cached"]
+        manager = await login(api, "manager")
+        answer = (
+            await api.post(f"{base}/ask", json={"question": "Has the candidate used Kafka?"}, headers=manager)
+        ).json()
+        assert (
+            answer["grounded"]
+            and answer["steps"][0]["tool"] == "search_cv"
+            and answer["sources"][0]["ref"] == "P1"
+        )
+        refused = (
+            await api.post(f"{base}/ask", json={"question": "Сколько ей лет?"}, headers=manager)
+        ).json()
+        assert refused["refused"] and not model.replies  # answered without another model call
+        assert "Смирнова" not in model.seen() and "anna.smirnova" not in model.seen()
+    finally:
+        services.llm = None
+
+    log = (await api.get("/api/audit", params={"entity_id": candidate["id"]}, headers=recruiter)).json()
+    actions = [e["action"] for e in log]
+    assert actions.count("ai.question") == 2 and actions.count("ai.summary") == 2
+    question = next(e for e in log if e["action"] == "ai.question" and e["data"]["refused"])
+    assert question["actor_type"] == "ai" and question["data"]["question"] == "Сколько ей лет?"
+
+    # erasure takes the summaries with it
+    assert (await api.delete(f"/api/candidates/{candidate['id']}", headers=recruiter)).status_code == 204
+    async with db_session.sessions()() as session:
+        left = (await session.execute(text("select count(*) from ai_summaries"))).scalar()
+    assert left == 0
 
 
 async def test_erasure_removes_the_candidate_and_their_file(api: httpx.AsyncClient, tmp_path: Path) -> None:

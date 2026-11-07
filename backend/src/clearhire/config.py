@@ -32,6 +32,18 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:4200", "http://localhost:3000"]
     demo_read_only: bool = False  # the public demo: staff can browse, nothing is changed or deleted
 
+    # the AI assistant: any OpenAI-compatible chat endpoint (Ollama by default); empty turns it off
+    llm_url: str | None = None
+    llm_model: str = "qwen3.5:9b"
+    llm_api_key: SecretStr | None = None
+    llm_timeout: float = Field(default=120, gt=0)
+    llm_calls_per_hour: int = Field(default=60, ge=1)  # per staff user
+
+    @field_validator("llm_url", mode="before")
+    @classmethod
+    def _empty_is_off(cls, value: object) -> object:
+        return value or None
+
     @field_validator("jwt_secret")
     @classmethod
     def _strong_secret(cls, value: SecretStr) -> SecretStr:

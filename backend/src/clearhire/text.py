@@ -81,6 +81,15 @@ def quote(text: str, start: int, end: int, width: int = 160) -> tuple[str, int, 
 
     Returns the quote and the match's offsets inside it, for highlighting.
     """
+    line_start, line_end = quote_window(text, start, end, width)
+    snippet = text[line_start:line_end]
+    prefix = "… " if line_start > 0 and text[line_start - 1] != "\n" else ""
+    suffix = " …" if line_end < len(text) and text[line_end] != "\n" else ""
+    return prefix + snippet + suffix, len(prefix) + start - line_start, len(prefix) + end - line_start
+
+
+def quote_window(text: str, start: int, end: int, width: int = 160) -> tuple[int, int]:
+    """Where `quote` cuts the text: the line around [start, end), at most about `width` characters."""
     line_start, line_end = line_bounds(text, start)
     line_end = max(line_end, min(end, len(text)))
     if line_end - line_start > width:
@@ -94,7 +103,4 @@ def quote(text: str, start: int, end: int, width: int = 160) -> tuple[str, int, 
             space = text.rfind(" ", end, right)
             right = space if space != -1 else right
         line_start, line_end = left, right
-    snippet = text[line_start:line_end]
-    prefix = "… " if line_start > 0 and text[line_start - 1] != "\n" else ""
-    suffix = " …" if line_end < len(text) and text[line_end] != "\n" else ""
-    return prefix + snippet + suffix, len(prefix) + start - line_start, len(prefix) + end - line_start
+    return line_start, line_end

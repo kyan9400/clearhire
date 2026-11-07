@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clearhire import audit
+from clearhire.assistant.llm import ChatModel
 from clearhire.config import Settings
 from clearhire.cv.profile import extract_profile
 from clearhire.db.models import Application, Candidate, Document, DocumentStatus, Profile, Source, Vacancy
@@ -28,12 +29,13 @@ class UploadRejected(ValueError):
 
 @dataclass
 class Services:
-    """What the API, the worker and the bot share: settings, file store, OCR and the matcher."""
+    """What the API, the worker and the bot share: settings, file store, OCR, the matcher and the LLM."""
 
     settings: Settings
     store: FileStore
     ocr: TesseractOcr | None
     matcher: Matcher
+    llm: ChatModel | None = None
 
 
 async def add_candidate(

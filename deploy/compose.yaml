@@ -24,6 +24,10 @@ x-backend: &backend
     CLEARHIRE_CORS_ORIGINS: '["https://${CONSOLE_HOST}","https://${CAREERS_HOST}"]'
     CLEARHIRE_DEMO_READ_ONLY: ${DEMO_READ_ONLY:-false}
     CLEARHIRE_RETENTION_DAYS: ${RETENTION_DAYS:-365}
+    # any OpenAI-compatible chat endpoint; empty turns the AI assistant off
+    CLEARHIRE_LLM_URL: ${LLM_URL-http://llm:11434/v1}
+    CLEARHIRE_LLM_MODEL: ${LLM_MODEL:-qwen3.5:9b}
+    CLEARHIRE_LLM_API_KEY: ${LLM_API_KEY:-}
   volumes:
     - files:/data/files
   depends_on:
@@ -59,6 +63,31 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 20
+    networks: [internal]
+
+  # The local LLM on the GPU (Ollama through Vulkan, see deploy/llm/Dockerfile). Nothing leaves the
+  # server: CV text never goes to a third-party API.
+  # First start: docker compose ... exec llm ollama pull qwen3.5:9b
+  llm:
+    image: clearhire-llm:${CLEARHIRE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: deploy/llm/Dockerfile
+    restart: unless-stopped
+    labels: *labels
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+      OLLAMA_CONTEXT_LENGTH: "16384"
+      OLLAMA_NUM_PARALLEL: "2"
+    volumes:
+      - llm:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     networks: [internal]
 
   migrate:
@@ -125,6 +154,7 @@ services:
 volumes:
   postgres:
   files:
+  llm:
   caddy_data:
   caddy_config:
 

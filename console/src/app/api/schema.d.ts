@@ -503,10 +503,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assistant Status */
+        get: operations["assistant_status_api_assistant_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vacancies/{vacancy_id}/matches/{candidate_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Match Summary
+         * @description A few sentences on the match, each citing its evidence. Kept until the requirements, the CV or the
+         *     model change; `refresh` writes a new one.
+         */
+        post: operations["match_summary_api_vacancies__vacancy_id__matches__candidate_id__summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vacancies/{vacancy_id}/matches/{candidate_id}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask About Candidate
+         * @description Answer a question about the candidate from their CV, citing the passages it used.
+         */
+        post: operations["ask_about_candidate_api_vacancies__vacancy_id__matches__candidate_id__ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnswerOut */
+        AnswerOut: {
+            /** Text */
+            text: string;
+            /** Sources */
+            sources: components["schemas"]["SourceOut"][];
+            /** Steps */
+            steps: components["schemas"]["StepOut"][];
+            /** Model */
+            model: string;
+            /** Refused */
+            refused: string | null;
+            /** Grounded */
+            grounded: boolean;
+            /** Quotes */
+            quotes: components["schemas"]["QuoteCheck"][];
+            /** Seconds */
+            seconds: number;
+        };
         /** ApplicationIn */
         ApplicationIn: {
             /**
@@ -559,6 +636,18 @@ export interface components {
             application_id: string;
             /** Status Token */
             status_token: string;
+        };
+        /** AskIn */
+        AskIn: {
+            /** Question */
+            question: string;
+        };
+        /** AssistantStatus */
+        AssistantStatus: {
+            /** Enabled */
+            enabled: boolean;
+            /** Model */
+            model: string | null;
         };
         /** AuditOut */
         AuditOut: {
@@ -884,6 +973,13 @@ export interface components {
             /** Requirements */
             requirements: components["schemas"]["PublicRequirement"][];
         };
+        /** QuoteCheck */
+        QuoteCheck: {
+            /** Text */
+            text: string;
+            /** Found */
+            found: boolean;
+        };
         /** RankedCandidate */
         RankedCandidate: {
             /**
@@ -1073,6 +1169,27 @@ export interface components {
          * @enum {string}
          */
         Source: "upload" | "portal" | "telegram" | "import";
+        /**
+         * SourceOut
+         * @description Something the assistant was shown and cited, exactly as it saw it (personal details redacted).
+         */
+        SourceOut: {
+            /** Ref */
+            ref: string;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "evidence" | "passage" | "section" | "requirement";
+            /** Section */
+            section: string;
+            /** Page */
+            page: number | null;
+            /** Requirement Id */
+            requirement_id: string | null;
+        };
         /** SourceStats */
         SourceStats: {
             /** Source */
@@ -1128,6 +1245,44 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /** StepOut */
+        StepOut: {
+            /** Tool */
+            tool: string;
+            /** Arguments */
+            arguments: {
+                [key: string]: string;
+            };
+            /** Refs */
+            refs: string[];
+        };
+        /** SummaryOut */
+        SummaryOut: {
+            /** Sentences */
+            sentences: components["schemas"]["SummarySentence"][];
+            /** Sources */
+            sources: components["schemas"]["SourceOut"][];
+            /** Model */
+            model: string;
+            /** Dropped */
+            dropped: number;
+            /** Notes */
+            notes: string[];
+            /** Cached */
+            cached: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** SummarySentence */
+        SummarySentence: {
+            /** Text */
+            text: string;
+            /** Refs */
+            refs: string[];
         };
         /** TimeToHire */
         TimeToHire: {
@@ -2281,6 +2436,96 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assistant_status_api_assistant_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantStatus"];
+                };
+            };
+        };
+    };
+    match_summary_api_vacancies__vacancy_id__matches__candidate_id__summary_post: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                vacancy_id: string;
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_about_candidate_api_vacancies__vacancy_id__matches__candidate_id__ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vacancy_id: string;
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerOut"];
+                };
             };
             /** @description Validation Error */
             422: {

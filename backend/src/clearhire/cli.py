@@ -33,6 +33,26 @@ def cmd_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_eval_assistant(args: argparse.Namespace) -> int:
+    """Score the AI assistant against the configured model (CLEARHIRE_LLM_URL) on the synthetic dataset."""
+    import asyncio
+
+    from clearhire.eval.assistant import run_assistant, save, to_markdown
+    from clearhire.tasks import build_services
+
+    services = build_services()
+    if services.llm is None:
+        print("set CLEARHIRE_LLM_URL to evaluate the assistant", file=sys.stderr)
+        return 2
+    report = asyncio.run(run_assistant(Path(args.dataset), services.matcher.taxonomy, services.matcher.embedder,
+                                       services.ocr, services.llm, pairs=args.pairs,
+                                       progress=lambda message: print(message, file=sys.stderr)))  # fmt: skip
+    if args.out:
+        save(report, Path(args.out))
+    print(to_markdown(report))
+    return 0
+
+
 def cmd_parse(args: argparse.Namespace) -> int:
     """Read one CV and print what Clearhire extracts from it."""
     from clearhire.cv.profile import extract_profile
@@ -135,6 +155,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--ocr-languages", default="eng+rus")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("eval-assistant", help="score the AI assistant against the configured language model")
+    p.add_argument("--dataset", default="../datasets/synthetic")
+    p.add_argument("--out", default="../eval/assistant")
+    p.add_argument("--pairs", type=int, default=30)
+    p.set_defaults(func=cmd_eval_assistant)
 
     p = sub.add_parser("parse", help="print what Clearhire reads from one CV file")
     p.add_argument("file")

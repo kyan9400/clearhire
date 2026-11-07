@@ -3,6 +3,8 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import type {
+  AiAnswer,
+  AiSummary,
   Application,
   Candidate,
   Note,
@@ -67,6 +69,20 @@ export class Api {
     return this.http.post<Application>('/api/applications', {
       candidate_id: candidateId,
       vacancy_id: vacancyId,
+    });
+  }
+
+  aiSummary(vacancyId: string, candidateId: string, refresh = false): Observable<AiSummary> {
+    return this.http.post<AiSummary>(
+      `/api/vacancies/${vacancyId}/matches/${candidateId}/summary`,
+      null,
+      { params: { refresh } },
+    );
+  }
+
+  ask(vacancyId: string, candidateId: string, question: string): Observable<AiAnswer> {
+    return this.http.post<AiAnswer>(`/api/vacancies/${vacancyId}/matches/${candidateId}/ask`, {
+      question,
     });
   }
 

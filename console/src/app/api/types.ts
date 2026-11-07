@@ -36,3 +36,8 @@ export const STAGES: readonly Stage[] = [
   'hired',
   'rejected',
 ];
+
+export type AssistantStatus = Schemas['AssistantStatus'];
+export type AiSummary = Schemas['SummaryOut'];
+export type AiSource = Schemas['SourceOut'];
+export type AiAnswer = Schemas['AnswerOut'];

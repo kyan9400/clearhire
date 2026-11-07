@@ -50,8 +50,14 @@ def build_services(settings: Settings | None = None) -> Services:
 
     settings = settings or get_settings()
     ocr = TesseractOcr(settings.ocr_languages)
+    llm = None
+    if settings.llm_url:
+        from clearhire.assistant.llm import OpenAIChat
+
+        key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else None
+        llm = OpenAIChat(settings.llm_url, settings.llm_model, api_key=key, timeout=settings.llm_timeout)
     _services = Services(settings=settings, store=FileStore(settings.storage_dir), ocr=ocr if ocr.available else None,
-                         matcher=Matcher(load_embedder(settings.embedding_model), load_taxonomy()))  # fmt: skip
+                         matcher=Matcher(load_embedder(settings.embedding_model), load_taxonomy()), llm=llm)  # fmt: skip
     return _services
 
 

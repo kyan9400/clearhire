@@ -360,3 +360,60 @@ class HealthOut(Schema):
 
 
 CandidateOut.model_rebuild()
+
+
+class AssistantStatus(Schema):
+    enabled: bool
+    model: str | None
+
+
+class SourceOut(Schema):
+    """Something the assistant was shown and cited, exactly as it saw it (personal details redacted)."""
+
+    ref: str
+    text: str
+    kind: Literal["evidence", "passage", "section", "requirement"]
+    section: str
+    page: int | None
+    requirement_id: str | None
+
+
+class SummarySentence(Schema):
+    text: str
+    refs: list[str]
+
+
+class SummaryOut(Schema):
+    sentences: list[SummarySentence]
+    sources: list[SourceOut]
+    model: str  # "rules" when no language model wrote it
+    dropped: int  # sentences removed for citing nothing the model was shown
+    notes: list[str]
+    cached: bool
+    created_at: datetime
+
+
+class AskIn(Schema):
+    question: str = Field(min_length=3, max_length=500)
+
+
+class StepOut(Schema):
+    tool: str
+    arguments: dict[str, str]
+    refs: list[str]
+
+
+class QuoteCheck(Schema):
+    text: str
+    found: bool
+
+
+class AnswerOut(Schema):
+    text: str
+    sources: list[SourceOut]
+    steps: list[StepOut]
+    model: str
+    refused: str | None  # the protected topic, when the question was refused
+    grounded: bool  # every sentence cites what the model was shown, and every quote is in the CV
+    quotes: list[QuoteCheck]
+    seconds: float

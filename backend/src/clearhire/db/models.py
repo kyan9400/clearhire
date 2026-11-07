@@ -264,6 +264,25 @@ class Match(Base):
     __table_args__ = (Index("ix_matches_rank", "vacancy_id", "must_have_gaps", "score"),)
 
 
+class AISummary(Base):
+    """The assistant's written summary of a match, kept until the requirements, the CV or the model change.
+    Deleted with the candidate (erasure) like everything else read from their CV."""
+
+    __tablename__ = "ai_summaries"
+
+    candidate_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("candidates.id", ondelete="CASCADE"), primary_key=True
+    )
+    vacancy_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vacancies.id", ondelete="CASCADE"), primary_key=True
+    )
+    requirements_version: Mapped[int] = mapped_column(Integer)
+    profile_version: Mapped[int] = mapped_column(Integer)
+    model: Mapped[str] = mapped_column(String(80))
+    payload: Mapped[dict[str, Any]] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Note(Base):
     __tablename__ = "notes"
 

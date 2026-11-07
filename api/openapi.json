@@ -1692,10 +1692,238 @@
           }
         }
       }
+    },
+    "/api/assistant": {
+      "get": {
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Assistant Status",
+        "operationId": "assistant_status_api_assistant_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/vacancies/{vacancy_id}/matches/{candidate_id}/summary": {
+      "post": {
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Match Summary",
+        "description": "A few sentences on the match, each citing its evidence. Kept until the requirements, the CV or the\nmodel change; `refresh` writes a new one.",
+        "operationId": "match_summary_api_vacancies__vacancy_id__matches__candidate_id__summary_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vacancy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vacancy Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Refresh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vacancies/{vacancy_id}/matches/{candidate_id}/ask": {
+      "post": {
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Ask About Candidate",
+        "description": "Answer a question about the candidate from their CV, citing the passages it used.",
+        "operationId": "ask_about_candidate_api_vacancies__vacancy_id__matches__candidate_id__ask_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vacancy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vacancy Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AnswerOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "refused": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refused"
+          },
+          "grounded": {
+            "type": "boolean",
+            "title": "Grounded"
+          },
+          "quotes": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteCheck"
+            },
+            "type": "array",
+            "title": "Quotes"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "sources",
+          "steps",
+          "model",
+          "refused",
+          "grounded",
+          "quotes",
+          "seconds"
+        ],
+        "title": "AnswerOut"
+      },
       "ApplicationIn": {
         "properties": {
           "candidate_id": {
@@ -1780,6 +2008,46 @@
           "status_token"
         ],
         "title": "ApplyOut"
+      },
+      "AskIn": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskIn"
+      },
+      "AssistantStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "model"
+        ],
+        "title": "AssistantStatus"
       },
       "AuditOut": {
         "properties": {
@@ -2662,6 +2930,24 @@
         ],
         "title": "PublicVacancy"
       },
+      "QuoteCheck": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "found": {
+            "type": "boolean",
+            "title": "Found"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "found"
+        ],
+        "title": "QuoteCheck"
+      },
       "RankedCandidate": {
         "properties": {
           "candidate_id": {
@@ -3191,6 +3477,65 @@
         ],
         "title": "Source"
       },
+      "SourceOut": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "evidence",
+              "passage",
+              "section",
+              "requirement"
+            ],
+            "title": "Kind"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "requirement_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "text",
+          "kind",
+          "section",
+          "page",
+          "requirement_id"
+        ],
+        "title": "SourceOut",
+        "description": "Something the assistant was shown and cited, exactly as it saw it (personal details redacted)."
+      },
       "SourceStats": {
         "properties": {
           "source": {
@@ -3327,6 +3672,109 @@
           "at"
         ],
         "title": "StatusStep"
+      },
+      "StepOut": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "arguments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Arguments"
+          },
+          "refs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tool",
+          "arguments",
+          "refs"
+        ],
+        "title": "StepOut"
+      },
+      "SummaryOut": {
+        "properties": {
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/SummarySentence"
+            },
+            "type": "array",
+            "title": "Sentences"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "dropped": {
+            "type": "integer",
+            "title": "Dropped"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sentences",
+          "sources",
+          "model",
+          "dropped",
+          "notes",
+          "cached",
+          "created_at"
+        ],
+        "title": "SummaryOut"
+      },
+      "SummarySentence": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "refs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "refs"
+        ],
+        "title": "SummarySentence"
       },
       "TimeToHire": {
         "properties": {

@@ -17,6 +17,7 @@ import { AuthService } from '../core/auth.service';
 import { Icon } from '../shared/icon';
 import { Score, Status } from '../shared/score';
 import { relativeDate } from '../shared/format';
+import { AssistantCard } from './assistant-card';
 
 interface QuotePart {
   text: string;
@@ -37,7 +38,7 @@ export function quoteParts(evidence: Evidence): QuotePart[] {
 @Component({
   selector: 'ch-match-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, Icon, Score, Status],
+  imports: [FormsModule, RouterLink, Icon, Score, Status, AssistantCard],
   template: `
     <aside class="panel" aria-label="Match details">
       <header>
@@ -75,6 +76,12 @@ export function quoteParts(evidence: Evidence): QuotePart[] {
               </button>
             }
           </div>
+
+          <ch-assistant-card
+            [vacancyId]="vacancyId()"
+            [candidateId]="candidateId()"
+            [language]="language()"
+          />
 
           <ol class="reqs">
             @for (row of rows(); track row.requirement.id) {
@@ -262,6 +269,14 @@ export class MatchPanel {
       requirement,
       result: results.get(requirement.id),
     }));
+  });
+
+  /** The vacancy's language, from its requirements, for the assistant's suggested questions. */
+  protected readonly language = computed(() => {
+    const text = (this.match.value()?.requirements ?? []).map((r) => r.text).join(' ');
+    return (text.match(/[а-яё]/gi)?.length ?? 0) > (text.match(/[a-z]/gi)?.length ?? 0)
+      ? 'ru'
+      : 'en';
   });
 
   protected readonly quoteParts = quoteParts;

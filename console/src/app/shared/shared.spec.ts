@@ -61,3 +61,15 @@ describe('niceMax', () => {
     expect(niceMax(1)).toBe(1);
   });
 });
+
+describe('citedParts', () => {
+  it('turns known references into parts and drops unknown ones', async () => {
+    const { citedParts } = await import('../vacancy/assistant-card');
+    expect(citedParts('Built Kafka consumers [P1]. Knows Go [E9].', new Set(['P1']))).toEqual([
+      { text: 'Built Kafka consumers' },
+      { text: 'P1', ref: 'P1' },
+      { text: '. Knows Go' },
+      { text: '.' },
+    ]);
+  });
+});
