@@ -1182,7 +1182,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "evidence" | "passage" | "section" | "requirement";
+            kind: "evidence" | "passage" | "section" | "requirement" | "skill";
             /** Section */
             section: string;
             /** Page */

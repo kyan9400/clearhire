@@ -133,11 +133,13 @@ async def test_the_agent_searches_then_answers_with_checked_citations(context: M
 
     model.chat = chat  # type: ignore[method-assign]
     answer = await ask(context, "Has the candidate worked with Kafka?", model, embedder)
-    assert [s.tool for s in answer.steps] == ["search_cv", "read_section"]
+    # the first search runs before the model is called; then the two tools it asked for
+    assert [s.tool for s in answer.steps] == ["search_cv", "search_cv", "read_section"]
+    assert answer.steps[0].arguments == {"query": "Has the candidate worked with Kafka?"}
     assert answer.grounded and answer.quotes == [{"text": "Kafka consumers for payments", "found": True}]
     assert answer.sources and answer.sources[0]["kind"] == "passage"
     tool_results = [m["content"] for m in model.requests[-1] if m["role"] == "tool"]
-    assert "Kafka" in tool_results[0] and "Python, SQL, Docker, Kubernetes" in tool_results[1]
+    assert "Kafka" in tool_results[1] and "Python, SQL, Docker, Kubernetes" in tool_results[2]
     assert model.tools[0] and model.tools[-1]  # tools offered on every round that may use them
     assert all(detail not in model.seen() for detail in PERSONAL)
 
@@ -159,7 +161,7 @@ async def test_the_agent_stops_calling_tools_after_four_rounds(
     looping = [Reply("", [ToolCall(f"c{i}", "search_cv", {"query": "python"})]) for i in range(4)]
     model = Scripted([*looping, Reply("It does not say [R1].")])
     answer = await ask(context, "What about Python?", model, embedder)
-    assert len(answer.steps) == 4 and model.tools[-1] is None
+    assert len(answer.steps) == 1 + 4 and model.tools[-1] is None  # the first search, then four rounds
 
 
 @pytest.mark.parametrize(
@@ -202,3 +204,17 @@ async def test_the_http_client_speaks_the_openai_format() -> None:
     broken = OpenAIChat("http://llm/v1", "m", transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     with pytest.raises(LLMError):
         await broken.chat([{"role": "user", "content": "hi"}])
+
+
+async def test_skills_named_in_a_question_are_looked_up_exactly(
+    context: MatchContext, embedder: HashEmbedder, taxonomy: Taxonomy
+) -> None:
+    model = Scripted([Reply("Yes [K1]. No mention of Go [K2].")])
+    answer = await ask(context, "Has she used PostgreSQL, and Golang?", model, embedder, taxonomy)
+    assert [s.tool for s in answer.steps] == ["search_cv", "skill_lookup"]
+    facts = {s["ref"]: s["text"] for s in answer.sources}
+    assert "PostgreSQL: named" in facts["K1"] and "«" in facts["K1"]
+    assert "Go: not named anywhere" in facts["K2"]
+    assert answer.grounded
+    lookups = [m["content"] for m in model.requests[0] if m["role"] == "tool"][1]
+    assert "Смирнова" not in lookups and "PostgreSQL" in lookups

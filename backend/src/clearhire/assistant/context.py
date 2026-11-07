@@ -17,17 +17,18 @@ import numpy as np
 from clearhire.embeddings import Embedder
 from clearhire.fairness import Span, pii_spans, redact_for_model
 from clearhire.matching import IndexedCV, MatchResult, duration
+from clearhire.skills import Taxonomy
 from clearhire.text import quote_window
 
 STATUS_WORD = {"met": "met", "partial": "partly met", "missing": "not found"}
-REF = re.compile(r"\[([EPSR]\d{1,3})\]")
+REF = re.compile(r"\[([EPSRK]\d{1,3})\]")
 
 
 @dataclass(frozen=True, slots=True)
 class Source:
     ref: str
     text: str  # redacted, exactly what the model was shown
-    kind: str  # evidence | passage | section | requirement
+    kind: str  # evidence | passage | section | requirement | skill
     section: str = ""
     page: int | None = None
     requirement_id: str | None = None
@@ -135,6 +136,48 @@ class MatchContext:
             )
             found.append(existing or self.grounding.add(Source(self.grounding.next_ref("P"), text, "passage",
                                                                chunk.section, cv.page_of(chunk.span[0]))))  # fmt: skip
+        return found
+
+    def skill_lookup(self, taxonomy: Taxonomy, text: str) -> list[Source]:
+        """What the deterministic skill matcher read about every skill named in `text`: where the CV names it
+        (with quotes), the months of dated roles that use it, or that no alias of it appears anywhere."""
+        cv_text = self.cv.profile.text
+        found: list[Source] = []
+        for skill_id in dict.fromkeys(m.skill_id for m in taxonomy.find(text)):
+            name = taxonomy.name(skill_id)
+            existing = next(
+                (
+                    s
+                    for s in self.grounding.sources.values()
+                    if s.kind == "skill" and s.requirement_id == skill_id
+                ),
+                None,
+            )
+            if existing:
+                found.append(existing)
+                continue
+            evidence = self.cv.profile.skills.get(skill_id)
+            if evidence is None:
+                fact = f"{name}: not named anywhere in the CV, under any of its names, and not implied by another skill."
+                quotes: list[str] = []
+            else:
+                months = f"; {duration(evidence.months)} in dated roles" if evidence.months else ""
+                how = (
+                    f"named {len(evidence.mentions)} time(s)"
+                    if evidence.explicit
+                    else f"not named, but implied by {', '.join(taxonomy.name(i) for i in evidence.implied_by)}"
+                )
+                fact = f"{name}: {how}{months}."
+                quotes = [
+                    redact_for_model(cv_text, quote_window(cv_text, m.start, m.end), self.spans)
+                    for m in evidence.mentions[:2]
+                ]
+            body = fact + "".join(f"\n  «{q}»" for q in quotes)
+            found.append(
+                self.grounding.add(
+                    Source(self.grounding.next_ref("K"), body, "skill", "skills", None, skill_id)
+                )
+            )
         return found
 
     def sections(self) -> list[str]:

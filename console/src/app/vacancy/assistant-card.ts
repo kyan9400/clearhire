@@ -26,7 +26,7 @@ export interface TextPart {
 export function citedParts(text: string, known: ReadonlySet<string>): TextPart[] {
   const parts: TextPart[] = [];
   let last = 0;
-  for (const match of text.matchAll(/\s?\[([EPSR]\d{1,3})\]/g)) {
+  for (const match of text.matchAll(/\s?\[([EPSRK]\d{1,3})\]/g)) {
     const index = match.index ?? 0;
     if (index > last) parts.push({ text: text.slice(last, index) });
     const ref = match[1]!;
@@ -460,6 +460,7 @@ export class AssistantCard {
       passage: 'found by search',
       section: 'CV section',
       requirement: 'requirement',
+      skill: 'skill matcher, exact',
     }[src.kind];
     return [src.section, src.page ? `page ${src.page}` : '', kind].filter(Boolean).join(' · ');
   }

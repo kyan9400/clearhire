@@ -103,7 +103,9 @@ async def ask_about_candidate(vacancy_id: uuid.UUID, candidate_id: uuid.UUID, bo
         raise HTTPException(status.HTTP_409_CONFLICT, "nothing was read from this CV")
     _limit(services, user)
     try:
-        answer = await ask(context, body.question.strip(), services.llm, services.matcher.embedder)
+        answer = await ask(
+            context, body.question.strip(), services.llm, services.matcher.embedder, services.matcher.taxonomy
+        )
     except LLMError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     await audit.record(session, "ai.question", "candidate", candidate_id, actor_type="ai", actor_id=answer.model, data={

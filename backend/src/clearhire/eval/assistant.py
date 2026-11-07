@@ -127,7 +127,7 @@ async def run_assistant(root: Path, taxonomy: Taxonomy, embedder: Embedder, ocr:
             question = (f"Есть ли в резюме опыт с {name}? Начните ответ с «да» или «нет»." if person.language == "ru"
                         else f"Does the CV show experience with {name}? Start your answer with yes or no.")  # fmt: skip
             context = MatchContext.build(vacancy.title, vacancy.language, reqs, cv, result)
-            answer = await ask(context, question, model, embedder)
+            answer = await ask(context, question, model, embedder, taxonomy)
             said = True if YES.search(answer.text) else False if NO.search(answer.text) else None
             answer_rows.append({"has": has, "said": said, "grounded": answer.grounded, "seconds": answer.seconds,
                                 "tools": len(answer.steps), "quotes": len(answer.quotes),

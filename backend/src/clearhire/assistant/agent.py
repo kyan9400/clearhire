@@ -1,8 +1,11 @@
 """Answering a recruiter's question about one candidate, with tools and checked citations.
 
-The model starts from the match overview (requirements and verdicts, no quotes) and can call three tools:
-search the CV by meaning, open a requirement's evidence, or read a CV section. Every result it gets has a
-reference (P#, E#, S#), and its answer must cite them. Afterwards the answer is checked: references must
+The model starts from the match overview (requirements and verdicts, no quotes) and the results of two
+lookups made before it is called: a search of the CV for the question, and the skill matcher's reading of
+every skill the question names. Small models left to decide on their own often answer from the overview
+alone and miss what the CV says (the evaluation measured it), so retrieval comes first. Then it may call
+four tools: search the CV by meaning, look up a skill, open a requirement's evidence, or read a CV section.
+Every result has a reference (P#, K#, E#, S#), and its answer must cite them. Afterwards the answer is checked: references must
 point at something the model was really shown, and every phrase it puts in «guillemets» must appear word
 for word in the CV. The recruiter sees the answer, the sources, each tool call, and whether the checks
 passed. Questions about protected traits are refused before the model is called.
@@ -19,15 +22,17 @@ from clearhire.assistant.context import REF, MatchContext, source_view
 from clearhire.assistant.guard import REFUSAL, language_of, protected_topic
 from clearhire.assistant.llm import ChatModel, LLMError, Message, ToolCall, tool
 from clearhire.embeddings import Embedder
+from clearhire.skills import Taxonomy
 
 MAX_ROUNDS = 4
 _QUOTE = re.compile(r"«([^»]{3,300})»|\"([^\"]{3,300})\"")
 
 SYSTEM = """You are a recruiting assistant answering a recruiter's question about one candidate for one \
-vacancy. Below is the match overview: each requirement [R#] with the matcher's verdict.
+vacancy. Below is the match overview: each requirement [R#] with the matcher's verdict. The overview covers only the vacancy's requirements, not the whole CV: something missing from it may still be in the CV.
 
-Read the CV through the tools before answering anything the overview does not settle:
+The results of a first search for the question, and of a skill lookup for every skill it names, are already in the conversation. A skill lookup [K#] is exact: it checks every name of the skill across the whole CV. Use more tools if those do not settle the question:
 - search_cv: passages closest in meaning to a query; returns [P#] passages
+- skill_lookup: whether and where the CV names a skill, and for how long it was used; returns [K#]
 - requirement_evidence: the CV quotes behind one requirement's verdict; returns [E#] quotes
 - read_section: one CV section (experience, skills, education, languages, summary, projects...); returns [S#]
 
@@ -35,7 +40,7 @@ Rules:
 - Answer in the language of the question, in 2 to 6 sentences.
 - Every factual sentence ends with the references it relies on, for example [P2] or [E1][R3].
 - When you quote the CV, copy the words exactly and put them in «guillemets».
-- If the CV does not say, answer that it does not say. Do not guess, and do not fill gaps from general knowledge.
+- Say the CV does not mention something only when a search or a skill lookup found nothing. Do not guess, and do not fill gaps from general knowledge.
 - Personal details are replaced by tokens like [name]. Never guess age, gender, family, health, religion, \
 ethnicity or nationality, and do not discuss them.
 - Do not recommend hiring or rejecting: a person decides.
@@ -45,6 +50,8 @@ ethnicity or nationality, and do not discuss them.
 TOOLS = [
     tool("search_cv", "Find the CV passages closest in meaning to a query.",
          query="What to look for, e.g. 'Kafka in production' or 'team leadership'"),
+    tool("skill_lookup", "Whether and where the CV names a skill (any of its names), and for how long it was used.",
+         skill="The skill, e.g. 'PostgreSQL' or 'Kubernetes'"),
     tool("requirement_evidence", "The CV quotes behind one requirement's verdict.",
          requirement="The requirement reference, e.g. R2"),
     tool("read_section", "Read one section of the CV.",
@@ -72,8 +79,13 @@ class Answer:
     tokens: int = 0
 
 
-def _run(context: MatchContext, embedder: Embedder, call: ToolCall) -> tuple[str, list[str]]:
+def _run(context: MatchContext, embedder: Embedder, taxonomy: Taxonomy | None, call: ToolCall) -> tuple[str, list[str]]:  # fmt: skip
     args = call.arguments
+    if call.name == "skill_lookup":
+        facts = context.skill_lookup(taxonomy, str(args.get("skill", ""))) if taxonomy else []
+        if not facts:
+            return "That is not a skill Clearhire knows; try search_cv instead.", []
+        return "\n".join(f"[{s.ref}] {s.text}" for s in facts), [s.ref for s in facts]
     if call.name == "search_cv":
         found = context.search(embedder, str(args.get("query", "")))
         if not found:
@@ -115,7 +127,8 @@ def check(text: str, context: MatchContext) -> tuple[bool, list[dict[str, Any]]]
     return grounded and all(q["found"] for q in quotes), quotes
 
 
-async def ask(context: MatchContext, question: str, model: ChatModel, embedder: Embedder) -> Answer:
+async def ask(context: MatchContext, question: str, model: ChatModel, embedder: Embedder,
+              taxonomy: Taxonomy | None = None) -> Answer:  # fmt: skip
     language = language_of(question)
     topic = protected_topic(question)
     if topic:
@@ -127,6 +140,11 @@ async def ask(context: MatchContext, question: str, model: ChatModel, embedder: 
         {"role": "user", "content": question},
     ]
     steps: list[Step] = []
+    # retrieval first: the search and the skill lookups, as if the model had asked for them
+    first = [ToolCall("pre-search", "search_cv", {"query": question})]
+    if taxonomy and taxonomy.find(question):
+        first.append(ToolCall("pre-skills", "skill_lookup", {"skill": question}))
+    _call_tools(context, embedder, taxonomy, first, messages, steps)
     tokens = 0
     reply = None
     for round_ in range(MAX_ROUNDS + 1):
@@ -135,14 +153,7 @@ async def ask(context: MatchContext, question: str, model: ChatModel, embedder: 
         tokens += reply.prompt_tokens + reply.completion_tokens
         if not reply.tool_calls or final:
             break
-        messages.append({"role": "assistant", "content": reply.content or "", "tool_calls": [
-            {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": _json(c.arguments)}}
-            for c in reply.tool_calls
-        ]})  # fmt: skip
-        for call in reply.tool_calls:
-            result, refs = _run(context, embedder, call)
-            steps.append(Step(call.name, call.arguments, refs))
-            messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+        _call_tools(context, embedder, taxonomy, reply.tool_calls, messages, steps, reply.content)
     assert reply is not None
     text = reply.content.strip()
     if not text:
@@ -151,6 +162,17 @@ async def ask(context: MatchContext, question: str, model: ChatModel, embedder: 
     used = context.grounding.cited(text)
     return Answer(text, [source_view(s) for s in used], steps, model.name, None, grounded, quotes,
                   time.perf_counter() - started, tokens)  # fmt: skip
+
+
+def _call_tools(context: MatchContext, embedder: Embedder, taxonomy: Taxonomy | None, calls: list[ToolCall],
+                messages: list[Message], steps: list[Step], content: str = "") -> None:  # fmt: skip
+    messages.append({"role": "assistant", "content": content, "tool_calls": [
+        {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": _json(c.arguments)}} for c in calls
+    ]})  # fmt: skip
+    for call in calls:
+        result, refs = _run(context, embedder, taxonomy, call)
+        steps.append(Step(call.name, call.arguments, refs))
+        messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
 
 def _json(value: dict[str, Any]) -> str:

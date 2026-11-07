@@ -372,7 +372,7 @@ class SourceOut(Schema):
 
     ref: str
     text: str
-    kind: Literal["evidence", "passage", "section", "requirement"]
+    kind: Literal["evidence", "passage", "section", "requirement", "skill"]
     section: str
     page: int | None
     requirement_id: str | None
