@@ -14,7 +14,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from clearhire import __version__
-from clearhire.api.routes import applications, assistant, auth, candidates, insights, public, vacancies
+from clearhire.api.routes import (
+    anchors,
+    applications,
+    assistant,
+    auth,
+    candidates,
+    insights,
+    public,
+    vacancies,
+)
 from clearhire.config import Settings, get_settings
 from clearhire.events import Events
 from clearhire.tasks import broker, build_services
@@ -64,7 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response.headers.setdefault(header, value)
         return response
 
-    for module in (auth, vacancies, candidates, applications, insights, public, assistant):
+    for module in (auth, vacancies, candidates, applications, anchors, insights, public, assistant):
         app.include_router(module.router)
 
     @app.get("/metrics", include_in_schema=False)

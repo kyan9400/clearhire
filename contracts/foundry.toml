@@ -1,0 +1,21 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+remappings = ["forge-std/=lib/forge-std/src/"]
+solc_version = "0.8.37"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 10000
+# deterministic bytecode: the backend ships the compiled contract, and CI checks it matches this build
+bytecode_hash = "none"
+cbor_metadata = false
+fs_permissions = [{ access = "read", path = "./test/fixtures" }]
+
+[fuzz]
+runs = 1000
+
+[fmt]
+line_length = 120

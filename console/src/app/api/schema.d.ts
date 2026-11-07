@@ -313,6 +313,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/audit/anchors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anchors */
+        get: operations["anchors_api_audit_anchors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/anchors/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check
+         * @description Rebuild every anchored range from the log as it is now and compare it with the chain.
+         */
+        get: operations["check_api_audit_anchors_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/{entry_id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proof
+         * @description The Merkle proof that this entry is in an anchored period, checked by the contract itself.
+         */
+        get: operations["proof_api_audit__entry_id__proof_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/analytics/overview": {
         parameters: {
             query?: never;
@@ -565,6 +622,65 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnchorCheckOut */
+        AnchorCheckOut: {
+            /** Anchors */
+            anchors: number;
+            /** Matching */
+            matching: number;
+            /** Reachable */
+            reachable: boolean;
+            /** First Mismatch Period */
+            first_mismatch_period: number | null;
+        };
+        /** AnchorOut */
+        AnchorOut: {
+            /** Period */
+            period: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Root */
+            root: string;
+            /** Head */
+            head: string;
+            /** First Id */
+            first_id: number;
+            /** Last Id */
+            last_id: number;
+            /** Entries */
+            entries: number;
+            /** Tx Hash */
+            tx_hash: string;
+            /** Block */
+            block: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AnchorsOut */
+        AnchorsOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Chain Name */
+            chain_name: string;
+            /** Chain Id */
+            chain_id: number | null;
+            /** Contract */
+            contract: string | null;
+            /** Explorer Tx Url */
+            explorer_tx_url: string | null;
+            /** Period Seconds */
+            period_seconds: number;
+            /** Unanchored */
+            unanchored: number;
+            /** Items */
+            items: components["schemas"]["AnchorOut"][];
+        };
         /** AnswerOut */
         AnswerOut: {
             /** Text */
@@ -934,6 +1050,29 @@ export interface components {
             skills: string[];
             /** Items */
             items: components["schemas"]["CheckItem"][];
+        };
+        /** ProofOut */
+        ProofOut: {
+            /** Entry Id */
+            entry_id: number;
+            /** Anchored */
+            anchored: boolean;
+            /** Period */
+            period: number | null;
+            /** Leaf */
+            leaf: string | null;
+            /** Proof */
+            proof: string[] | null;
+            /** Root */
+            root: string | null;
+            /** Tx Hash */
+            tx_hash: string | null;
+            /** Root Matches Log */
+            root_matches_log: boolean | null;
+            /** Root Matches Chain */
+            root_matches_chain: boolean | null;
+            /** Verified On Chain */
+            verified_on_chain: boolean | null;
         };
         /** PublicRequirement */
         PublicRequirement: {
@@ -2130,6 +2269,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anchors_api_audit_anchors_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnchorsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_api_audit_anchors_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnchorCheckOut"];
+                };
+            };
+        };
+    };
+    proof_api_audit__entry_id__proof_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofOut"];
                 };
             };
             /** @description Validation Error */

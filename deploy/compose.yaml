@@ -29,6 +29,12 @@ x-backend: &backend
     CLEARHIRE_LLM_MODEL: ${LLM_MODEL:-qwen3.5:9b}
     CLEARHIRE_LLM_API_KEY: ${LLM_API_KEY:-}
     CLEARHIRE_BOT_SECRET: ${BOT_SECRET:-}
+    # the audit log's anchors: reading needs no key; only the anchor service below signs
+    CLEARHIRE_CHAIN_RPC_URL: ${CHAIN_RPC_URL:-http://chain:8545}
+    CLEARHIRE_CHAIN_NAME: ${CHAIN_NAME:-local Anvil}
+    CLEARHIRE_CHAIN_EXPLORER_TX_URL: ${CHAIN_EXPLORER_TX_URL:-}
+    CLEARHIRE_ANCHOR_CONTRACT: ${ANCHOR_CONTRACT:-}
+    CLEARHIRE_ANCHOR_PERIOD_SECONDS: ${ANCHOR_PERIOD_SECONDS:-3600}
   volumes:
     - files:/data/files
   depends_on:
@@ -93,6 +99,36 @@ services:
               count: 1
               capabilities: [gpu]
     networks: [internal]
+
+  # A local EVM chain for the demo (Anvil), its state kept in a volume. For a public network, set
+  # CHAIN_RPC_URL, CHAIN_NAME and CHAIN_EXPLORER_TX_URL instead and leave this service idle.
+  chain:
+    image: ghcr.io/foundry-rs/foundry:v1.8.6
+    restart: unless-stopped
+    labels: *labels
+    user: root  # writes its state to the named volume
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--chain-id", "31337", "--state", "/data/anvil.json", "--state-interval", "60", "--silent"]
+    volumes:
+      - chain:/data
+    networks: [internal]
+
+  # Anchors the audit log every finished period; the only container that holds the publisher's key.
+  anchor:
+    <<: *backend
+    command: ["clearhire", "anchor", "--loop"]
+    environment:
+      CLEARHIRE_DATABASE_URL: postgresql+asyncpg://clearhire:${POSTGRES_PASSWORD:?}@postgres:5432/clearhire
+      CLEARHIRE_JWT_SECRET: ${JWT_SECRET:?}
+      CLEARHIRE_CHAIN_RPC_URL: ${CHAIN_RPC_URL:-http://chain:8545}
+      CLEARHIRE_ANCHOR_CONTRACT: ${ANCHOR_CONTRACT:-}
+      CLEARHIRE_ANCHOR_PRIVATE_KEY: ${ANCHOR_PRIVATE_KEY:-}
+      CLEARHIRE_ANCHOR_PERIOD_SECONDS: ${ANCHOR_PERIOD_SECONDS:-3600}
+      CLEARHIRE_EMBEDDING_MODEL: hash  # anchoring reads no CVs: skip loading the model
+    profiles: [anchoring]
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   migrate:
     <<: *backend
@@ -184,6 +220,7 @@ volumes:
   files:
   llm:
   redis:
+  chain:
   caddy_data:
   caddy_config:
 

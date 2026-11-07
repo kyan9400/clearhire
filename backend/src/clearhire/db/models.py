@@ -264,6 +264,25 @@ class Match(Base):
     __table_args__ = (Index("ix_matches_rank", "vacancy_id", "must_have_gaps", "score"),)
 
 
+class Anchor(Base):
+    """One anchoring transaction: a range of audit entries committed to the AuditAnchor contract."""
+
+    __tablename__ = "anchors"
+
+    period: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    period_seconds: Mapped[int] = mapped_column(Integer)
+    root: Mapped[bytes] = mapped_column(LargeBinary(32))
+    head: Mapped[bytes] = mapped_column(LargeBinary(32))
+    first_id: Mapped[int] = mapped_column(BigInteger)
+    last_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    entries: Mapped[int] = mapped_column(Integer)
+    chain_id: Mapped[int] = mapped_column(BigInteger)
+    contract: Mapped[str] = mapped_column(String(42))
+    tx_hash: Mapped[str] = mapped_column(String(66))
+    block: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class AISummary(Base):
     """The assistant's written summary of a match, kept until the requirements, the CV or the model change.
     Deleted with the candidate (erasure) like everything else read from their CV."""

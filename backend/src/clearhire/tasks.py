@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import AsyncBroker, InMemoryBroker
 
+from clearhire.anchoring.chain import Chain
 from clearhire.config import Settings, get_settings
 from clearhire.db.models import Application, Document, DocumentStatus, Match, Vacancy
 from clearhire.db.session import sessions
@@ -61,8 +62,18 @@ def build_services(settings: Settings | None = None) -> Services:
         key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else None
         llm = OpenAIChat(settings.llm_url, settings.llm_model, api_key=key, timeout=settings.llm_timeout)
     _services = Services(settings=settings, store=FileStore(settings.storage_dir), ocr=ocr if ocr.available else None,
-                         matcher=Matcher(load_embedder(settings.embedding_model), load_taxonomy()), llm=llm)  # fmt: skip
+                         matcher=Matcher(load_embedder(settings.embedding_model), load_taxonomy()), llm=llm,
+                         chain=chain_from(settings))  # fmt: skip
     return _services
+
+
+def chain_from(settings: Settings) -> Chain | None:
+    """The anchoring contract, if configured. Reading needs only the RPC URL and the address; anchoring
+    also needs the publisher's key."""
+    if not settings.chain_rpc_url:
+        return None
+    key = settings.anchor_private_key.get_secret_value() if settings.anchor_private_key else None
+    return Chain(settings.chain_rpc_url, key, settings.anchor_contract)
 
 
 async def run_parse(document_id: uuid.UUID, services: Services | None = None) -> None:

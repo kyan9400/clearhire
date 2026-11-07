@@ -42,7 +42,23 @@ class Settings(BaseSettings):
     # the Telegram bot proves itself with this shared secret (header X-Clearhire-Bot)
     bot_secret: SecretStr | None = None
 
-    @field_validator("llm_url", "bot_secret", mode="before")
+    # anchoring the audit log on an EVM chain (contracts/AuditAnchor.sol); no RPC URL turns it off
+    chain_rpc_url: str | None = None
+    chain_name: str = "local Anvil"
+    chain_explorer_tx_url: str | None = None  # e.g. https://sepolia.basescan.org/tx/
+    anchor_contract: str | None = None
+    anchor_private_key: SecretStr | None = None
+    anchor_period_seconds: int = Field(default=3600, ge=60, le=86400)
+
+    @field_validator(
+        "llm_url",
+        "bot_secret",
+        "chain_rpc_url",
+        "anchor_contract",
+        "anchor_private_key",
+        "chain_explorer_tx_url",
+        mode="before",
+    )
     @classmethod
     def _empty_is_off(cls, value: object) -> object:
         return value or None

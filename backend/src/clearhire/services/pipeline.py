@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clearhire import audit
+from clearhire.anchoring.chain import Chain
 from clearhire.assistant.llm import ChatModel
 from clearhire.config import Settings
 from clearhire.cv.profile import extract_profile
@@ -36,6 +37,7 @@ class Services:
     ocr: TesseractOcr | None
     matcher: Matcher
     llm: ChatModel | None = None
+    chain: Chain | None = None  # the AuditAnchor contract, when anchoring is configured
 
 
 async def add_candidate(

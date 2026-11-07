@@ -1,14 +1,15 @@
-import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { HttpClient, httpResource } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import type { AuditEntry, AuditVerify } from '../api/types';
+import type { AuditEntry, AuditVerify, Proof } from '../api/types';
+import { AnchorsCard } from './anchors-card';
 import { Icon } from '../shared/icon';
 
 @Component({
   selector: 'ch-audit',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Icon],
+  imports: [FormsModule, Icon, AnchorsCard],
   template: `
     <div class="page">
       <header class="page-head">
@@ -50,6 +51,8 @@ import { Icon } from '../shared/icon';
         </button>
       </div>
 
+      <ch-anchors-card />
+
       <form class="row filters" (ngSubmit)="apply()">
         <input
           class="input"
@@ -73,6 +76,7 @@ import { Icon } from '../shared/icon';
                 <th>Entity</th>
                 <th>Details</th>
                 <th>Hash</th>
+                <th>On chain</th>
               </tr>
             </thead>
             <tbody>
@@ -87,10 +91,47 @@ import { Icon } from '../shared/icon';
                   <td class="mono">{{ e.entity_type }} {{ e.entity_id.slice(0, 8) }}</td>
                   <td class="mono details">{{ json(e.data) }}</td>
                   <td class="mono muted">{{ e.hash.slice(0, 12) }}…</td>
+                  <td class="proof">
+                    @switch (proofState(e.id)) {
+                      @case ('idle') {
+                        <button class="btn ghost sm" type="button" (click)="prove(e.id)">
+                          Prove
+                        </button>
+                      }
+                      @case ('loading') {
+                        <span class="muted">…</span>
+                      }
+                      @case ('verified') {
+                        <span
+                          class="chip met"
+                          title="The contract's verifyEntry accepted this entry and its Merkle proof"
+                        >
+                          <ch-icon name="check" [size]="11" />verified
+                        </span>
+                      }
+                      @case ('pending') {
+                        <span
+                          class="chip"
+                          title="Logged after the last anchor; it will be in the next one"
+                          >not yet</span
+                        >
+                      }
+                      @case ('changed') {
+                        <span class="chip missing" title="This entry differs from what was anchored"
+                          >changed</span
+                        >
+                      }
+                      @default {
+                        <span class="chip partial" title="The chain could not be reached"
+                          >unknown</span
+                        >
+                      }
+                    }
+                  </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="7" class="empty">
+                  <td colspan="8" class="empty">
                     {{ entries.isLoading() ? 'Loading…' : 'No entries.' }}
                   </td>
                 </tr>
@@ -128,6 +169,9 @@ import { Icon } from '../shared/icon';
     .filters .input {
       width: 300px;
     }
+    .proof {
+      white-space: nowrap;
+    }
     .details {
       max-width: 380px;
       overflow: hidden;
@@ -137,6 +181,8 @@ import { Icon } from '../shared/icon';
   `,
 })
 export class Audit {
+  private readonly http = inject(HttpClient);
+  private readonly proofs = signal<Record<number, Proof | 'loading' | 'error'>>({});
   protected readonly verify = httpResource<AuditVerify>(() => '/api/audit/verify');
   private readonly action = signal('');
   private readonly entity = signal('');
@@ -154,6 +200,27 @@ export class Audit {
   protected apply(): void {
     this.action.set(this.actionField.trim());
     this.entity.set(this.entityField.trim());
+  }
+
+  protected prove(id: number): void {
+    this.proofs.update((all) => ({ ...all, [id]: 'loading' }));
+    this.http.get<Proof>(`/api/audit/${id}/proof`).subscribe({
+      next: (proof) => this.proofs.update((all) => ({ ...all, [id]: proof })),
+      error: () => this.proofs.update((all) => ({ ...all, [id]: 'error' })),
+    });
+  }
+
+  protected proofState(
+    id: number,
+  ): 'idle' | 'loading' | 'verified' | 'pending' | 'changed' | 'unknown' {
+    const proof = this.proofs()[id];
+    if (proof === undefined) return 'idle';
+    if (proof === 'loading') return 'loading';
+    if (proof === 'error') return 'unknown';
+    if (!proof.anchored) return 'pending';
+    if (proof.verified_on_chain) return 'verified';
+    if (proof.root_matches_log === false || proof.verified_on_chain === false) return 'changed';
+    return 'unknown';
   }
 
   protected json(data: unknown): string {

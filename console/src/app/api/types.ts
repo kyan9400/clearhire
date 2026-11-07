@@ -41,3 +41,6 @@ export type AssistantStatus = Schemas['AssistantStatus'];
 export type AiSummary = Schemas['SummaryOut'];
 export type AiSource = Schemas['SourceOut'];
 export type AiAnswer = Schemas['AnswerOut'];
+export type Anchors = Schemas['AnchorsOut'];
+export type AnchorCheck = Schemas['AnchorCheckOut'];
+export type Proof = Schemas['ProofOut'];

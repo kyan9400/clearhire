@@ -1226,6 +1226,131 @@
         }
       }
     },
+    "/api/audit/anchors": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Anchors",
+        "operationId": "anchors_api_audit_anchors_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit/anchors/check": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Check",
+        "description": "Rebuild every anchored range from the log as it is now and compare it with the chain.",
+        "operationId": "check_api_audit_anchors_check_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorCheckOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/audit/{entry_id}/proof": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Proof",
+        "description": "The Merkle proof that this entry is in an anchored period, checked by the contract itself.",
+        "operationId": "proof_api_audit__entry_id__proof_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Entry Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analytics/overview": {
       "get": {
         "tags": [
@@ -1860,6 +1985,173 @@
   },
   "components": {
     "schemas": {
+      "AnchorCheckOut": {
+        "properties": {
+          "anchors": {
+            "type": "integer",
+            "title": "Anchors"
+          },
+          "matching": {
+            "type": "integer",
+            "title": "Matching"
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable"
+          },
+          "first_mismatch_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Mismatch Period"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anchors",
+          "matching",
+          "reachable",
+          "first_mismatch_period"
+        ],
+        "title": "AnchorCheckOut"
+      },
+      "AnchorOut": {
+        "properties": {
+          "period": {
+            "type": "integer",
+            "title": "Period"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "head": {
+            "type": "string",
+            "title": "Head"
+          },
+          "first_id": {
+            "type": "integer",
+            "title": "First Id"
+          },
+          "last_id": {
+            "type": "integer",
+            "title": "Last Id"
+          },
+          "entries": {
+            "type": "integer",
+            "title": "Entries"
+          },
+          "tx_hash": {
+            "type": "string",
+            "title": "Tx Hash"
+          },
+          "block": {
+            "type": "integer",
+            "title": "Block"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "starts_at",
+          "root",
+          "head",
+          "first_id",
+          "last_id",
+          "entries",
+          "tx_hash",
+          "block",
+          "created_at"
+        ],
+        "title": "AnchorOut"
+      },
+      "AnchorsOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "chain_name": {
+            "type": "string",
+            "title": "Chain Name"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          },
+          "contract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract"
+          },
+          "explorer_tx_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explorer Tx Url"
+          },
+          "period_seconds": {
+            "type": "integer",
+            "title": "Period Seconds"
+          },
+          "unanchored": {
+            "type": "integer",
+            "title": "Unanchored"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnchorOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "chain_name",
+          "chain_id",
+          "contract",
+          "explorer_tx_url",
+          "period_seconds",
+          "unanchored",
+          "items"
+        ],
+        "title": "AnchorsOut"
+      },
       "AnswerOut": {
         "properties": {
           "text": {
@@ -2843,6 +3135,123 @@
           "items"
         ],
         "title": "PrecheckOut"
+      },
+      "ProofOut": {
+        "properties": {
+          "entry_id": {
+            "type": "integer",
+            "title": "Entry Id"
+          },
+          "anchored": {
+            "type": "boolean",
+            "title": "Anchored"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "leaf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leaf"
+          },
+          "proof": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proof"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tx Hash"
+          },
+          "root_matches_log": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Matches Log"
+          },
+          "root_matches_chain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Matches Chain"
+          },
+          "verified_on_chain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified On Chain"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entry_id",
+          "anchored",
+          "period",
+          "leaf",
+          "proof",
+          "root",
+          "tx_hash",
+          "root_matches_log",
+          "root_matches_chain",
+          "verified_on_chain"
+        ],
+        "title": "ProofOut"
       },
       "PublicRequirement": {
         "properties": {

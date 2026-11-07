@@ -1,0 +1,43 @@
+name: contracts
+
+on:
+  push:
+    branches: [main]
+    paths: ["contracts/**", "backend/src/clearhire/anchoring/**", ".github/workflows/contracts.yml"]
+  pull_request:
+    paths: ["contracts/**", "backend/src/clearhire/anchoring/**", ".github/workflows/contracts.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: contracts
+
+jobs:
+  forge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.6
+      - run: sh install.sh
+      - run: forge fmt --check
+      - name: Lint (no warnings allowed)
+        run: test -z "$(forge lint 2>&1 | grep -E '^(warning|error)')"
+      - run: forge build --sizes
+      - name: Tests, with 1000 fuzz runs and the backend's Merkle fixture
+        run: forge test -vv
+      - name: The backend ships this exact bytecode
+        run: |
+          python3 - <<'EOF'
+          import json
+          built = json.load(open("out/AuditAnchor.sol/AuditAnchor.json"))["bytecode"]["object"]
+          shipped = json.load(open("../backend/src/clearhire/anchoring/AuditAnchor.json"))["bytecode"]
+          assert built == shipped, "backend/src/clearhire/anchoring/AuditAnchor.json is stale: rebuild and copy it"
+          EOF

@@ -417,3 +417,47 @@ class AnswerOut(Schema):
     grounded: bool  # every sentence cites what the model was shown, and every quote is in the CV
     quotes: list[QuoteCheck]
     seconds: float
+
+
+class AnchorOut(Schema):
+    period: int
+    starts_at: datetime
+    root: str
+    head: str
+    first_id: int
+    last_id: int
+    entries: int
+    tx_hash: str
+    block: int
+    created_at: datetime
+
+
+class AnchorsOut(Schema):
+    enabled: bool
+    chain_name: str
+    chain_id: int | None
+    contract: str | None
+    explorer_tx_url: str | None
+    period_seconds: int
+    unanchored: int  # entries logged since the last anchor
+    items: list[AnchorOut]
+
+
+class ProofOut(Schema):
+    entry_id: int
+    anchored: bool
+    period: int | None
+    leaf: str | None
+    proof: list[str] | None
+    root: str | None
+    tx_hash: str | None
+    root_matches_log: bool | None
+    root_matches_chain: bool | None
+    verified_on_chain: bool | None
+
+
+class AnchorCheckOut(Schema):
+    anchors: int
+    matching: int
+    reachable: bool
+    first_mismatch_period: int | None

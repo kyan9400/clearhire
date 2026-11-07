@@ -139,6 +139,79 @@ def cmd_openapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deploy_anchor(args: argparse.Namespace) -> int:
+    """Deploy AuditAnchor with the configured key as owner and publisher; prints the address."""
+    import asyncio
+
+    from clearhire.config import get_settings
+    from clearhire.tasks import chain_from
+
+    chain = chain_from(get_settings())
+    if chain is None or chain.address is None:
+        print("set CLEARHIRE_CHAIN_RPC_URL and CLEARHIRE_ANCHOR_PRIVATE_KEY", file=sys.stderr)
+        return 2
+
+    async def go() -> str:
+        address, receipt = await chain.deploy(args.publisher or chain.address or "")
+        await chain.close()
+        print(f"deployed in block {receipt.block}, tx {receipt.tx_hash}", file=sys.stderr)
+        return address
+
+    print(asyncio.run(go()))
+    return 0
+
+
+def cmd_anchor(args: argparse.Namespace) -> int:
+    """Anchor the audit log: once, or every period with --loop (the `anchor` service runs that)."""
+    import asyncio
+    import time
+    from datetime import UTC, datetime
+
+    from clearhire.anchoring.chain import ChainError
+    from clearhire.anchoring.service import anchor_pending, period_of, period_start
+    from clearhire.config import get_settings
+    from clearhire.db.session import sessions
+    from clearhire.tasks import chain_from
+
+    settings = get_settings()
+    chain = chain_from(settings)
+    if chain is None or chain.address is None or not chain.contract:
+        print(
+            "set CLEARHIRE_CHAIN_RPC_URL, CLEARHIRE_ANCHOR_PRIVATE_KEY and CLEARHIRE_ANCHOR_CONTRACT",
+            file=sys.stderr,
+        )
+        return 2
+    seconds = settings.anchor_period_seconds
+
+    async def once(close_current: bool) -> None:
+        async with sessions()() as session:
+            row = await anchor_pending(session, chain, seconds, close_current=close_current)
+        if row is None:
+            print("nothing to anchor", file=sys.stderr)
+        else:
+            print(f"anchored period {row.period}: entries {row.first_id}..{row.last_id} ({row.entries}), "
+                  f"root 0x{row.root.hex()}, tx {row.tx_hash}", file=sys.stderr)  # fmt: skip
+
+    if not args.loop:
+        asyncio.run(once(args.now))
+        return 0
+    while True:  # wake a minute after each period ends; a failure is retried at the next wake-up
+        try:
+            asyncio.run(once(False))
+        except ChainError as exc:
+            print(f"anchoring failed, retrying next period: {exc}", file=sys.stderr)
+        now = datetime.now(UTC)
+        wake = period_start(period_of(now, seconds) + 1, seconds).timestamp() + 60
+        time.sleep(max(30.0, wake - now.timestamp()))
+
+
+def cmd_anchor_fixture(args: argparse.Namespace) -> int:
+    from clearhire.anchoring.fixture import write
+
+    write(Path(args.out))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="clearhire", description="Explainable AI recruiting.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -182,6 +255,21 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("openapi", help="write the OpenAPI schema (for the TypeScript clients)")
     p.add_argument("--out", default="../api/openapi.json", help="a file, or - for stdout")
     p.set_defaults(func=cmd_openapi)
+
+    p = sub.add_parser("deploy-anchor", help="deploy the AuditAnchor contract (prints its address)")
+    p.add_argument("--publisher", help="the address allowed to anchor (default: the deployer)")
+    p.set_defaults(func=cmd_deploy_anchor)
+
+    p = sub.add_parser("anchor", help="anchor the audit log on the chain")
+    p.add_argument(
+        "--now", action="store_true", help="include the current period up to now (a first demo run)"
+    )
+    p.add_argument("--loop", action="store_true", help="keep anchoring every finished period")
+    p.set_defaults(func=cmd_anchor)
+
+    p = sub.add_parser("anchor-fixture", help="write the Merkle fixture the contract test replays")
+    p.add_argument("--out", default="../contracts/test/fixtures/merkle.json")
+    p.set_defaults(func=cmd_anchor_fixture)
 
     args = parser.parse_args(argv)
     result: int = args.func(args)
