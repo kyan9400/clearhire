@@ -183,7 +183,7 @@ def to_markdown(report: AssistantReport) -> str:
         "## Questions about skills", "",
         "Yes/no questions, half about a skill the CV has and half about one it does not, graded against the "
         "generator's truth.", "",
-        "| Asked | Answered yes/no | Accuracy | When present | When absent | Grounded | Quotes in CV | Tool calls | p50 s | p95 s |",
+        "| Asked | Answered yes/no | Accuracy | When present | When absent | Grounded | Quotes in CV | Lookups per answer | p50 s | p95 s |",
         "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         f"| {q['asked']} | {q['answered_yes_or_no']} | {q['accuracy']} | {q['accuracy_when_present']} | "
         f"{q['accuracy_when_absent']} | {q['grounded_rate']} | {q['quotes_in_cv']}/{q['quotes']} | {q['tool_calls_mean']} | "
