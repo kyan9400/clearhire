@@ -1,0 +1,75 @@
+{{- $fullname := include "clearhire.fullname" . }}
+{{- /* helm test: every service answers in-cluster, and (with NetworkPolicies) a pod that is not a
+client of the database cannot reach it. Uses the console image, which has busybox wget and nc. */}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $fullname }}-test-services
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "test") | nindent 4 }}
+    {{- include "clearhire.accessLabels" (list "api") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  {{- include "clearhire.podDefaults" . | nindent 2 }}
+  {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 101) | nindent 2 }}
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: {{ include "clearhire.image" (dict "ctx" . "name" "console") }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      command:
+        - sh
+        - -ec
+        - |
+          wget -qO- http://{{ $fullname }}-api:8000/api/ready | grep -q '"ready":true'
+          echo "api: ready, schema current"
+          wget -qO /dev/null http://{{ $fullname }}-api:8000/api/public/vacancies
+          echo "api: the public vacancy list answers"
+          wget -qO /dev/null http://{{ $fullname }}-portal:3100/how-we-hire
+          echo "portal: renders"
+          wget -qO- http://{{ $fullname }}-console:8080/ | grep -q '<app-root'
+          echo "console: serves the app"
+      {{- include "clearhire.containerSecurity" . | nindent 6 }}
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { memory: 64Mi }
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $fullname }}-test-isolation
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "test") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  {{- include "clearhire.podDefaults" . | nindent 2 }}
+  {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 101) | nindent 2 }}
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: {{ include "clearhire.image" (dict "ctx" . "name" "console") }}
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      command:
+        - sh
+        - -c
+        - |
+          {{- if .Values.postgres.enabled }}
+          if nc -z -w 3 {{ $fullname }}-postgres 5432; then echo "postgres is reachable from a pod that is not its client"; exit 1; fi
+          echo "postgres: refused to a non-client"
+          {{- end }}
+          {{- if .Values.redis.enabled }}
+          if nc -z -w 3 {{ $fullname }}-redis 6379; then echo "redis is reachable from a pod that is not its client"; exit 1; fi
+          echo "redis: refused to a non-client"
+          {{- end }}
+          if wget -qO /dev/null -T 3 http://{{ $fullname }}-api:8000/api/health; then echo "the API is reachable from a pod that is not its client"; exit 1; fi
+          echo "api: refused to a non-client"
+      {{- include "clearhire.containerSecurity" . | nindent 6 }}
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { memory: 64Mi }
+{{- end }}

@@ -1,0 +1,17 @@
+# Managed PostgreSQL and Redis, an existing Gateway, secrets from outside the chart.
+secrets:
+  existingSecret: clearhire-secrets
+postgres:
+  enabled: false
+  externalUrl: postgresql+asyncpg://clearhire:x@db.example.com:5432/clearhire
+redis:
+  enabled: false
+  externalUrl: rediss://:x@cache.example.com:6380/0
+gateway:
+  enabled: true
+  parentRefs:
+    - name: shared-gateway
+      namespace: gateway-system
+      sectionName: https
+networkPolicy:
+  enabled: false

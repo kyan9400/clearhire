@@ -1,0 +1,198 @@
+# Clearhire on Kubernetes. Every value is checked against values.schema.json.
+#   helm install clearhire deploy/helm/clearhire -n clearhire --create-namespace \
+#     --set hosts.careers=careers.example.com --set hosts.console=console.example.com
+
+nameOverride: ""
+fullnameOverride: ""
+
+# The images CI publishes (ghcr.io/kyan9400/clearhire-api, ...). Leave the registry empty for images
+# loaded straight into the cluster (kind load docker-image clearhire-api:ci).
+image:
+  registry: ghcr.io/kyan9400
+  tag: ""  # defaults to the chart's appVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+hosts:
+  careers: careers.clearhire.local
+  console: console.clearhire.local
+  scheme: https  # how browsers reach them, for CORS and links (http only for a local test cluster)
+
+# Settings shared by the API, the worker and the jobs (CLEARHIRE_* in the backend's config.py)
+config:
+  demoReadOnly: false
+  retentionDays: 365
+  embeddingModel: intfloat/multilingual-e5-small
+  extra: {}  # any other CLEARHIRE_* setting, e.g. {CLEARHIRE_LLM_MODEL: "..."}
+
+# Secrets. Left empty, random ones are generated once and kept across upgrades. Or name a Secret you
+# manage (sealed-secrets, external-secrets) with the same keys: postgres-password, database-url,
+# redis-password, redis-url, jwt-secret, bot-secret, and optionally telegram-bot-token, llm-api-key,
+# anchor-private-key.
+secrets:
+  existingSecret: ""
+  jwtSecret: ""
+  botSecret: ""
+  telegramBotToken: ""
+  llmApiKey: ""
+  anchorPrivateKey: ""
+
+# The bundled PostgreSQL with pgvector. For a managed database set enabled: false and give its URL
+# (postgresql+asyncpg://user:password@host:5432/db), with the vector extension available.
+postgres:
+  enabled: true
+  image: pgvector/pgvector:0.8.0-pg17
+  password: ""
+  externalUrl: ""
+  storage: 10Gi
+  storageClass: ""
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+redis:
+  enabled: true
+  image: redis:7.4.12-alpine
+  password: ""
+  externalUrl: ""  # redis://:password@host:6379/0
+  storage: 1Gi
+  storageClass: ""
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 320Mi }
+
+# Uploaded CVs, shared by the API and the worker. With ReadWriteOnce they are scheduled onto one node
+# together; use a ReadWriteMany class (NFS, EFS, CephFS) to spread them over nodes.
+files:
+  storage: 10Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+api:
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits: { memory: 3Gi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPU: 70
+  pdb: { minAvailable: 1 }
+
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits: { memory: 3Gi }
+
+portal:
+  replicas: 2
+  telegramBotUsername: ""
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPU: 70
+  pdb: { minAvailable: 1 }
+
+console:
+  replicas: 2
+  resources:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { memory: 64Mi }
+  pdb: { minAvailable: 1 }
+
+# The Telegram bot long-polls Telegram, so it runs as exactly one replica and needs no Service.
+bot:
+  enabled: false
+  recruiterChatIds: ""
+  resources:
+    requests: { cpu: 20m, memory: 96Mi }
+    limits: { memory: 256Mi }
+
+# A local LLM (Ollama) on a GPU node; or point llm.url at any OpenAI-compatible endpoint. Empty url
+# with enabled: false turns the AI assistant off.
+llm:
+  enabled: false
+  # stock Ollama needs NVIDIA driver 550+; for older drivers build deploy/llm/Dockerfile (Vulkan)
+  image: ollama/ollama:0.40.10
+  url: ""
+  model: qwen3.5:9b
+  storage: 20Gi
+  storageClass: ""
+  gpu: 1
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    requests: { cpu: 500m, memory: 4Gi }
+    limits: { memory: 12Gi }
+
+# Anchoring the audit log on an EVM chain. chain.enabled runs a local Anvil node (a demo: its state is
+# on a volume of this cluster); for a public network give rpcUrl and leave it off.
+anchoring:
+  enabled: false
+  contract: ""
+  periodSeconds: 3600
+  chainName: ""
+  rpcUrl: ""
+  explorerTxUrl: ""
+  resources:
+    requests: { cpu: 20m, memory: 192Mi }
+    limits: { memory: 512Mi }
+chain:
+  enabled: false
+  image: ghcr.io/foundry-rs/foundry:v1.8.6
+  chainId: 31337
+  # deploy AuditAnchor once after install (set anchoring.contract to the address it prints)
+  deployContract: false
+  storage: 1Gi
+  storageClass: ""
+
+# Loads the synthetic dataset once, after the first install (staff accounts, vacancies, 300+ CVs).
+seed:
+  enabled: false
+  password: clearhire-demo
+
+# Gateway API routes (the successor to Ingress). Either attach to a Gateway the cluster already has
+# (parentRefs), or let the chart create one for a GatewayClass. Turn on this or ingress: with neither,
+# the sites are reachable only inside the cluster.
+gateway:
+  enabled: false
+  create: false
+  className: ""
+  listeners:
+    http: true
+    httpsSecretName: ""  # a TLS Secret (e.g. from cert-manager) covering both hosts
+  parentRefs: []  # [{name: shared-gateway, namespace: gateway-system, sectionName: https}]
+
+# A plain Ingress instead, for clusters without the Gateway API.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  tlsSecretName: ""
+
+# Only the Gateway reaches the front ends; only the pods that need them reach the API, PostgreSQL,
+# Redis, the LLM and the chain. Requires a CNI that enforces NetworkPolicy.
+networkPolicy:
+  enabled: true
+  # where the Gateway's (or the Ingress controller's) proxy pods run
+  gatewayNamespace: envoy-gateway-system
+  gatewayPodLabels: {}
+  # a namespace allowed to scrape /metrics from the API (e.g. monitoring); empty for none
+  metricsNamespace: ""
+
+# A prometheus-operator ServiceMonitor for the API's /metrics
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile: { type: RuntimeDefault }
+nodeSelector: {}
+tolerations: []

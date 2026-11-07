@@ -1,0 +1,16 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "clearhire.fullname" . }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "api") | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from clearhire import __version__
@@ -25,6 +26,8 @@ from clearhire.api.routes import (
     vacancies,
 )
 from clearhire.config import Settings, get_settings
+from clearhire.db import schema
+from clearhire.db.session import sessions
 from clearhire.events import Events
 from clearhire.tasks import broker, build_services
 
@@ -75,6 +78,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for module in (auth, vacancies, candidates, applications, anchors, insights, public, assistant):
         app.include_router(module.router)
+
+    @app.get("/api/ready", include_in_schema=False)
+    async def ready() -> JSONResponse:
+        """Readiness for Kubernetes: the database answers and is migrated for this code."""
+        database, done = True, frozenset[str]()
+        try:
+            async with sessions()() as session:
+                done = await schema.applied(session)
+        except Exception:  # unreachable: not ready, never an error page
+            database = False
+        current = database and schema.is_current(done)
+        return JSONResponse({"ready": current, "database": database, "schema": sorted(done)},
+                            status_code=200 if current else 503)  # fmt: skip
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:

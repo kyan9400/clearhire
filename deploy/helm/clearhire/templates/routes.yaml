@@ -1,0 +1,126 @@
+{{- $fullname := include "clearhire.fullname" . }}
+{{- $g := .Values.gateway }}
+{{- $https := and $g.create $g.listeners.httpsSecretName }}
+{{- /*
+The two sites and what each one exposes:
+  careers: /api/public/* goes to the API (so its rate limits see the candidate), everything else to
+           Next.js, which answers 404 for the rest of /api and for /metrics
+  console: /api/* goes to the API, everything else to the static console
+*/}}
+{{- $sites := list
+  (dict "name" "careers" "host" .Values.hosts.careers "api" "/api/public" "frontend" "portal" "port" 3100)
+  (dict "name" "console" "host" .Values.hosts.console "api" "/api" "frontend" "console" "port" 8080) }}
+{{- if $g.enabled }}
+{{- if not (or $g.create $g.parentRefs) }}
+{{- fail "gateway.enabled needs gateway.create (with gateway.className) or gateway.parentRefs" }}
+{{- end }}
+{{- if $g.create }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "gateway") | nindent 4 }}
+spec:
+  gatewayClassName: {{ required "gateway.className is required with gateway.create" $g.className }}
+  listeners:
+    {{- if $g.listeners.http }}
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes: { namespaces: { from: Same } }
+    {{- end }}
+    {{- if $https }}
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ $g.listeners.httpsSecretName }}
+      allowedRoutes: { namespaces: { from: Same } }
+    {{- end }}
+---
+{{- if $https }}
+# plain HTTP only redirects
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullname }}-redirect
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "gateway") | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $fullname }}
+      sectionName: http
+  hostnames: [{{ .Values.hosts.careers | quote }}, {{ .Values.hosts.console | quote }}]
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect: { scheme: https, statusCode: 301 }
+---
+{{- end }}
+{{- end }}
+{{- range $sites }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullname }}-{{ .name }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" .frontend) | nindent 4 }}
+spec:
+  parentRefs:
+    {{- if $g.create }}
+    - name: {{ $fullname }}
+      sectionName: {{ ternary "https" "http" (not (empty $https)) }}
+    {{- else }}
+    {{- toYaml $g.parentRefs | nindent 4 }}
+    {{- end }}
+  hostnames: [{{ .host | quote }}]
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: {{ .api }} }
+      backendRefs:
+        - name: {{ $fullname }}-api
+          port: 8000
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - name: {{ $fullname }}-{{ .frontend }}
+          port: {{ .port }}
+---
+{{- end }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "ingress") | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tlsSecretName }}
+  tls:
+    - hosts: [{{ $.Values.hosts.careers | quote }}, {{ $.Values.hosts.console | quote }}]
+      secretName: {{ . }}
+  {{- end }}
+  rules:
+    {{- range $sites }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          - path: {{ .api }}
+            pathType: Prefix
+            backend: { service: { name: {{ $fullname }}-api, port: { number: 8000 } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ $fullname }}-{{ .frontend }}, port: { number: {{ .port }} } } }
+    {{- end }}
+{{- end }}

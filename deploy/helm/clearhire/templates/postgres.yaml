@@ -1,0 +1,92 @@
+{{- if .Values.postgres.enabled }}
+{{- $fullname := include "clearhire.fullname" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-postgres
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "postgres") | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "postgres") | nindent 4 }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-postgres
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "postgres") | nindent 4 }}
+spec:
+  serviceName: {{ $fullname }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "postgres") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 999) | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          env:
+            - name: POSTGRES_USER
+              value: clearhire
+            - name: POSTGRES_DB
+              value: clearhire
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "clearhire.secretName" . }}, key: postgres-password } }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "clearhire", "-d", "clearhire", "-h", "127.0.0.1"] }
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["pg_isready", "-U", "clearhire", "-d", "clearhire", "-h", "127.0.0.1"] }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 6
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: shm
+          emptyDir: { medium: Memory, sizeLimit: 256Mi }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.postgres.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+{{- end }}

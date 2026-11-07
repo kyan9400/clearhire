@@ -1,0 +1,141 @@
+{{- $fullname := include "clearhire.fullname" . }}
+{{- /* the careers site (Next.js) and the recruiter console (static Angular behind nginx) */}}
+{{- $frontends := list
+  (dict "component" "portal" "port" 3100 "uid" 1000 "probe" "/how-we-hire" "values" .Values.portal "access" (list "api"))
+  (dict "component" "console" "port" 8080 "uid" 101 "probe" "/healthz" "values" .Values.console "access" (list)) }}
+{{- range $frontends }}
+{{- $v := .values }}
+{{- $component := .component }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ .component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" .component) | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" .component) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-{{ .component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" .component) | nindent 4 }}
+spec:
+  {{- if not (and $v.autoscaling $v.autoscaling.enabled) }}
+  replicas: {{ $v.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" .component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" $ "component" .component) | nindent 8 }}
+        {{- include "clearhire.accessLabels" .access | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") $ | sha256sum }}
+    spec:
+      {{- include "clearhire.podDefaults" $ | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" $ "uid" .uid) | nindent 6 }}
+      affinity:
+        podAntiAffinity:  # spread the replicas over nodes where there are several
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" .component) | nindent 20 }}
+      containers:
+        - name: {{ .component }}
+          image: {{ include "clearhire.image" (dict "ctx" $ "name" .component) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- if eq .component "portal" }}
+          env:
+            - name: CLEARHIRE_API_URL
+              value: http://{{ $fullname }}-api:8000
+            - name: CLEARHIRE_PUBLIC_URL
+              value: {{ include "clearhire.careersUrl" $ }}
+            - name: CLEARHIRE_RETENTION_DAYS
+              value: {{ $.Values.config.retentionDays | quote }}
+            - name: TELEGRAM_BOT_USERNAME
+              value: {{ $v.telegramBotUsername | quote }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .port }}
+          readinessProbe:
+            httpGet: { path: {{ .probe }}, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: {{ .probe }}, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          lifecycle:
+            preStop:
+              sleep: { seconds: 5 }
+          {{- include "clearhire.containerSecurity" $ | nindent 10 }}
+          resources:
+            {{- toYaml $v.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq .component "portal" }}
+            - name: next-cache  # Next.js writes its fetch and image cache here
+              mountPath: /app/.next/cache
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 256Mi }
+        {{- if eq .component "portal" }}
+        - name: next-cache
+          emptyDir: { sizeLimit: 512Mi }
+        {{- end }}
+{{- if and $v.autoscaling $v.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $fullname }}-{{ .component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" .component) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $fullname }}-{{ .component }}
+  minReplicas: {{ $v.autoscaling.minReplicas }}
+  maxReplicas: {{ $v.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ $v.autoscaling.targetCPU }} }
+{{- end }}
+{{- with $v.pdb }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" $component) | nindent 4 }}
+spec:
+  minAvailable: {{ .minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" $component) | nindent 6 }}
+{{- end }}
+---
+{{ end }}

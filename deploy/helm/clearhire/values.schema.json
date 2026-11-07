@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Clearhire chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": { "type": "object" },
+        "limits": { "type": "object" }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "minReplicas", "maxReplicas", "targetCPU"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPU": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "pdb": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": { "minAvailable": { "type": ["integer", "string"] } }
+    },
+    "quantity": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti)$" },
+    "host": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" }
+  },
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "registry": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "imagePullSecrets": { "type": "array" },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["careers", "console", "scheme"],
+      "properties": {
+        "careers": { "$ref": "#/definitions/host" },
+        "console": { "$ref": "#/definitions/host" },
+        "scheme": { "enum": ["http", "https"] }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "demoReadOnly": { "type": "boolean" },
+        "retentionDays": { "type": "integer", "minimum": 30 },
+        "embeddingModel": { "type": "string", "minLength": 1 },
+        "extra": {
+          "type": "object",
+          "propertyNames": { "pattern": "^CLEARHIRE_[A-Z0-9_]+$" },
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "jwtSecret": { "anyOf": [{ "const": "" }, { "type": "string", "minLength": 32 }] },
+        "botSecret": { "anyOf": [{ "const": "" }, { "type": "string", "minLength": 32 }] },
+        "telegramBotToken": { "type": "string" },
+        "llmApiKey": { "type": "string" },
+        "anchorPrivateKey": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }] }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "type": "string" },
+        "password": { "type": "string", "pattern": "^[A-Za-z0-9]*$", "description": "letters and digits: it goes into a URL" },
+        "externalUrl": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^postgresql\\+asyncpg://" }] },
+        "storage": { "$ref": "#/definitions/quantity" },
+        "storageClass": { "type": "string" },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "type": "string" },
+        "password": { "type": "string", "pattern": "^[A-Za-z0-9]*$" },
+        "externalUrl": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^rediss?://" }] },
+        "storage": { "$ref": "#/definitions/quantity" },
+        "storageClass": { "type": "string" },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storage": { "$ref": "#/definitions/quantity" },
+        "storageClass": { "type": "string" },
+        "accessMode": { "enum": ["ReadWriteOnce", "ReadWriteMany"] }
+      }
+    },
+    "api": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "resources": { "$ref": "#/definitions/resources" },
+        "autoscaling": { "$ref": "#/definitions/autoscaling" },
+        "pdb": { "$ref": "#/definitions/pdb" }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 0 },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "portal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "telegramBotUsername": { "type": "string", "pattern": "^[A-Za-z0-9_]*$" },
+        "resources": { "$ref": "#/definitions/resources" },
+        "autoscaling": { "$ref": "#/definitions/autoscaling" },
+        "pdb": { "$ref": "#/definitions/pdb" }
+      }
+    },
+    "console": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "resources": { "$ref": "#/definitions/resources" },
+        "pdb": { "$ref": "#/definitions/pdb" }
+      }
+    },
+    "bot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "recruiterChatIds": { "type": "string", "pattern": "^(-?[0-9]+)?(\\s*,\\s*-?[0-9]+)*$" },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "llm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "type": "string" },
+        "url": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^https?://" }] },
+        "model": { "type": "string" },
+        "storage": { "$ref": "#/definitions/quantity" },
+        "storageClass": { "type": "string" },
+        "gpu": { "type": "integer", "minimum": 0 },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "anchoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "contract": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" }] },
+        "periodSeconds": { "type": "integer", "minimum": 60, "maximum": 86400 },
+        "chainName": { "type": "string" },
+        "rpcUrl": { "anyOf": [{ "const": "" }, { "type": "string", "pattern": "^https?://" }] },
+        "explorerTxUrl": { "type": "string" },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "type": "string" },
+        "chainId": { "type": "integer", "minimum": 1 },
+        "deployContract": { "type": "boolean" },
+        "storage": { "$ref": "#/definitions/quantity" },
+        "storageClass": { "type": "string" }
+      }
+    },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "password": { "type": "string", "minLength": 8 }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "create": { "type": "boolean" },
+        "className": { "type": "string" },
+        "listeners": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "http": { "type": "boolean" },
+            "httpsSecretName": { "type": "string" }
+          }
+        },
+        "parentRefs": { "type": "array", "items": { "type": "object", "required": ["name"] } }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object" },
+        "tlsSecretName": { "type": "string" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "gatewayNamespace": { "type": "string" },
+        "gatewayPodLabels": { "type": "object" },
+        "metricsNamespace": { "type": "string" }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval": { "type": "string" }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" }
+  }
+}

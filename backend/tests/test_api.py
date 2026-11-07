@@ -48,6 +48,7 @@ async def _fresh_schema(url: str) -> None:
     async with engine.begin() as connection:
         await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await connection.run_sync(Base.metadata.drop_all)
+        await connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
         for name in ("stage", "source", "documentstatus", "vacancystatus", "role"):
             await connection.execute(text(f"DROP TYPE IF EXISTS {name} CASCADE"))
         await connection.run_sync(Base.metadata.create_all)
@@ -495,3 +496,25 @@ async def test_health_and_metrics(api: httpx.AsyncClient) -> None:
     await api.get("/api/vacancies")
     metrics = (await api.get("/metrics")).text
     assert 'clearhire_http_requests_total{method="GET",route="/api/vacancies",status="401"}' in metrics
+
+
+async def test_ready_waits_for_the_schema_this_code_needs(api: httpx.AsyncClient) -> None:
+    from clearhire.db import schema
+
+    unmigrated = await api.get("/api/ready")  # the test schema comes from create_all: never stamped
+    assert unmigrated.status_code == 503
+    assert unmigrated.json() == {"ready": False, "database": True, "schema": []}
+
+    async with db_session.sessions()() as session:
+        await session.execute(text("CREATE TABLE alembic_version (version_num varchar(32) PRIMARY KEY)"))
+        for head in schema.heads():
+            await session.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": head})
+        await session.commit()
+    assert (await api.get("/api/ready")).json()["ready"] is True
+
+    async with db_session.sessions()() as session:  # a newer release migrated: a rollback still starts
+        await session.execute(text("UPDATE alembic_version SET version_num = 'from_a_newer_release'"))
+        await session.commit()
+    assert (await api.get("/api/ready")).status_code == 200
+    assert schema.is_current(frozenset()) is False
+    assert "/api/ready" not in api._transport.app.openapi()["paths"]  # type: ignore[attr-defined]

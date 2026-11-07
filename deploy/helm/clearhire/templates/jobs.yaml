@@ -1,0 +1,83 @@
+{{- $fullname := include "clearhire.fullname" . }}
+# Migrations: a new Job per release revision. The API and the worker wait for it in their init
+# containers (clearhire wait-db --migrated), so no pod ever serves an unmigrated database.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullname }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "migrate") | nindent 4 }}
+spec:
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "migrate") | nindent 8 }}
+        {{- include "clearhire.accessLabels" (list "postgres") | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      restartPolicy: Never
+      initContainers:
+        {{- include "clearhire.waitForDatabase" (dict "ctx" . "migrated" false) | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: CLEARHIRE_DATABASE_URL
+              valueFrom: { secretKeyRef: { name: {{ include "clearhire.secretName" . }}, key: database-url } }
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- if .Values.seed.enabled }}
+---
+# The demo dataset, once, after the first install. Every CV goes through the real pipeline.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullname }}-seed
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "seed") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 0  # a half-loaded demo is reset by hand, never loaded twice
+  activeDeadlineSeconds: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "seed") | nindent 8 }}
+        clearhire.io/files: "true"
+        {{- include "clearhire.accessLabels" (list "postgres" "redis") | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      {{- include "clearhire.filesAffinity" . | nindent 6 }}
+      restartPolicy: Never
+      initContainers:
+        {{- include "clearhire.waitForDatabase" (dict "ctx" . "migrated" true) | nindent 8 }}
+      containers:
+        - name: seed
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["clearhire", "seed", "--dataset", "datasets/synthetic", "--password", {{ .Values.seed.password | quote }}]
+          {{- include "clearhire.backendEnv" . | nindent 10 }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "clearhire.filesMounts" . | nindent 12 }}
+      volumes:
+        {{- include "clearhire.filesVolume" . | nindent 8 }}
+{{- end }}

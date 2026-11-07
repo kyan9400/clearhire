@@ -1,0 +1,16 @@
+apiVersion: v2
+name: clearhire
+description: >-
+  Clearhire, explainable AI recruiting: the API and its worker, the careers site, the recruiter console,
+  the Telegram bot, an optional local LLM, and audit-log anchoring on an EVM chain.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.30.0-0"
+home: https://github.com/kyan9400/clearhire
+sources:
+  - https://github.com/kyan9400/clearhire
+keywords: [recruiting, fastapi, nextjs, angular, gateway-api]
+maintainers:
+  - name: Hassan Ak
+    url: https://github.com/kyan9400

@@ -1,0 +1,90 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fullname := include "clearhire.fullname" . }}
+{{- $np := .Values.networkPolicy }}
+{{- /* Every Clearhire pod refuses connections unless a rule below admits them. Egress stays open: the
+bot talks to Telegram, anchoring may use a public RPC, the assistant may use a hosted model. */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-default-deny
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ include "clearhire.name" . }}
+  policyTypes: [Ingress]
+---
+{{- /* front ends: from the Gateway's proxies only */}}
+{{- range $component, $port := dict "portal" 3100 "console" 8080 }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" $component) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - {{- include "clearhire.gatewayPeer" $ | nindent 10 }}
+      ports:
+        - port: {{ $port }}
+---
+{{- end }}
+{{- /* the API: from the Gateway, and from the pods labelled as its clients (portal, bot, tests) */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - {{- include "clearhire.gatewayPeer" . | nindent 10 }}
+        - podSelector:
+            matchLabels:
+              clearhire.io/api-client: "true"
+      ports:
+        - port: 8000
+    {{- with $np.metricsNamespace }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+      ports:
+        - port: 8000
+    {{- end }}
+---
+{{- /* the data services: only from pods labelled as their clients */}}
+{{- range $component, $port := dict "postgres" 5432 "redis" 6379 "llm" 11434 "chain" 8545 }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" $component) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              clearhire.io/{{ $component }}-client: "true"
+      ports:
+        - port: {{ $port }}
+---
+{{- end }}
+{{- end }}

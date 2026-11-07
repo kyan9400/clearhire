@@ -62,7 +62,8 @@ class Chain:
     def __init__(self, rpc_url: str, private_key: str | None = None, contract: str | None = None, *,
                  transport: httpx.AsyncBaseTransport | None = None, poll: float = 1.0, timeout: float = 120) -> None:  # fmt: skip
         self.account = Account.from_key(private_key) if private_key else None
-        self.contract: str | None = str(to_checksum_address(contract)) if contract else None  # eth-account wants checksums
+        # eth-account wants checksummed addresses
+        self.contract: str | None = str(to_checksum_address(contract)) if contract else None
         self.poll, self.timeout = poll, timeout
         self._client = httpx.AsyncClient(timeout=30, transport=transport)
         self._url = rpc_url

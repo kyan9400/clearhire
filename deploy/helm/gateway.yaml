@@ -1,0 +1,25 @@
+# The GatewayClass the e2e test installs next to Envoy Gateway. A kind cluster has no load balancer, so
+# the Envoy proxies get a ClusterIP Service and the test reaches them through kubectl port-forward.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: cluster-ip
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: ClusterIP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: cluster-ip
+    namespace: envoy-gateway-system

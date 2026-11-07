@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clearhire.fullname" . }}-config
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "config") | nindent 4 }}
+data:
+  CLEARHIRE_CORS_ORIGINS: {{ list (include "clearhire.consoleUrl" .) (include "clearhire.careersUrl" .) | toJson | quote }}
+  CLEARHIRE_DEMO_READ_ONLY: {{ .Values.config.demoReadOnly | quote }}
+  CLEARHIRE_RETENTION_DAYS: {{ .Values.config.retentionDays | quote }}
+  CLEARHIRE_EMBEDDING_MODEL: {{ .Values.config.embeddingModel | quote }}
+  CLEARHIRE_STORAGE_DIR: /data/files
+  CLEARHIRE_LLM_URL: {{ include "clearhire.llmUrl" . | quote }}
+  CLEARHIRE_LLM_MODEL: {{ .Values.llm.model | quote }}
+  CLEARHIRE_CHAIN_RPC_URL: {{ include "clearhire.chainUrl" . | quote }}
+  CLEARHIRE_CHAIN_NAME: {{ .Values.anchoring.chainName | default (ternary "local Anvil" "" .Values.chain.enabled) | quote }}
+  CLEARHIRE_CHAIN_EXPLORER_TX_URL: {{ .Values.anchoring.explorerTxUrl | quote }}
+  CLEARHIRE_ANCHOR_CONTRACT: {{ .Values.anchoring.contract | quote }}
+  CLEARHIRE_ANCHOR_PERIOD_SECONDS: {{ .Values.anchoring.periodSeconds | quote }}
+  {{- range $key, $value := .Values.config.extra }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

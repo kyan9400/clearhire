@@ -31,7 +31,12 @@ def _broker() -> AsyncBroker:
     if settings.redis_url:
         from taskiq_redis import ListQueueBroker
 
-        return ListQueueBroker(settings.redis_url, queue_name="clearhire:jobs")
+        # The worker waits on the queue with a BRPOP that has no limit. redis-py 8 sets a 5 s socket
+        # timeout by default, which ended every idle wait in a TimeoutError that killed the worker
+        # process (taskiq restarted it every few seconds). No read timeout on this connection; TCP
+        # keepalive and a health check every 30 s still notice a dead one.
+        return ListQueueBroker(settings.redis_url, queue_name="clearhire:jobs", socket_timeout=None,
+                               socket_keepalive=True, health_check_interval=30)  # fmt: skip
     return InMemoryBroker()
 
 

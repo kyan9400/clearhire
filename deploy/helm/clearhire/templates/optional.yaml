@@ -1,0 +1,317 @@
+{{- $fullname := include "clearhire.fullname" . }}
+{{- $secret := include "clearhire.secretName" . }}
+{{- if .Values.bot.enabled }}
+{{- if not (or .Values.secrets.telegramBotToken .Values.secrets.existingSecret) }}
+{{- fail "bot.enabled needs secrets.telegramBotToken (or secrets.existingSecret with telegram-bot-token)" }}
+{{- end }}
+# The Telegram bot: one replica, because two would long-poll the same bot and Telegram refuses that.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-bot
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "bot") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "bot") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "bot") | nindent 8 }}
+        {{- include "clearhire.accessLabels" (list "api" "redis") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 1000) | nindent 6 }}
+      containers:
+        - name: bot
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "bot") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: telegram-bot-token } }
+            - name: CLEARHIRE_BOT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: bot-secret } }
+            - name: REDIS_URL
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: redis-url } }
+            - name: CLEARHIRE_API_URL
+              value: http://{{ $fullname }}-api:8000
+            - name: CAREERS_URL
+              value: {{ include "clearhire.careersUrl" . }}
+            - name: CONSOLE_URL
+              value: {{ include "clearhire.consoleUrl" . }}
+            - name: RECRUITER_CHAT_IDS
+              value: {{ .Values.bot.recruiterChatIds | quote }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.bot.resources | nindent 12 }}
+---
+{{- end }}
+{{- if .Values.llm.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-llm
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "llm") | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "llm") | nindent 4 }}
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-llm
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "llm") | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep  # model weights are large to download again
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.llm.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.llm.storage }}
+---
+# Ollama on a GPU node, so CV text never leaves the cluster. Pulls the model on first start.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-llm
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "llm") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }  # one GPU, one volume
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "llm") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "llm") | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 1000) | nindent 6 }}
+      {{- with .Values.llm.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.llm.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: pull-model
+          image: {{ .Values.llm.image }}
+          command: ["sh", "-c", "ollama serve & until ollama list >/dev/null 2>&1; do sleep 1; done; ollama pull {{ .Values.llm.model }}"]
+          {{- include "clearhire.llmEnv" . | nindent 10 }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          {{- include "clearhire.llmMounts" . | nindent 10 }}
+      containers:
+        - name: llm
+          image: {{ .Values.llm.image }}
+          {{- include "clearhire.llmEnv" . | nindent 10 }}
+          ports:
+            - name: http
+              containerPort: 11434
+          readinessProbe:
+            httpGet: { path: /api/version, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/version, port: http }
+            periodSeconds: 30
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            requests:
+              {{- toYaml .Values.llm.resources.requests | nindent 14 }}
+            limits:
+              {{- toYaml .Values.llm.resources.limits | nindent 14 }}
+              {{- if .Values.llm.gpu }}
+              nvidia.com/gpu: {{ .Values.llm.gpu }}
+              {{- end }}
+          {{- include "clearhire.llmMounts" . | nindent 10 }}
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ $fullname }}-llm
+        - name: tmp
+          emptyDir: {}
+---
+{{- end }}
+{{- if .Values.chain.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-chain
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "chain") | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "chain") | nindent 4 }}
+  ports:
+    - name: rpc
+      port: 8545
+      targetPort: rpc
+---
+# A local EVM chain (Anvil) for the demo, its state on a volume. A real deployment points
+# anchoring.rpcUrl at a public network instead.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-chain
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "chain") | nindent 4 }}
+spec:
+  serviceName: {{ $fullname }}-chain
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "chain") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "chain") | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 1000) | nindent 6 }}
+      containers:
+        - name: anvil
+          image: {{ .Values.chain.image }}
+          command: ["anvil"]
+          args: ["--host", "0.0.0.0", "--chain-id", "{{ .Values.chain.chainId }}", "--state", "/data/anvil.json",
+                 "--state-interval", "60", "--silent"]
+          env:
+            - name: HOME
+              value: /tmp
+          ports:
+            - name: rpc
+              containerPort: 8545
+          readinessProbe:
+            tcpSocket: { port: rpc }
+            periodSeconds: 5
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.chain.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.chain.storage }}
+---
+{{- end }}
+{{- if .Values.anchoring.enabled }}
+{{- if not (or .Values.secrets.anchorPrivateKey .Values.secrets.existingSecret) }}
+{{- fail "anchoring.enabled needs secrets.anchorPrivateKey (or secrets.existingSecret with anchor-private-key)" }}
+{{- end }}
+{{- if not (include "clearhire.chainUrl" .) }}
+{{- fail "anchoring.enabled needs chain.enabled or anchoring.rpcUrl" }}
+{{- end }}
+# Anchors the audit log every finished period: the only pod that can read the publisher's key.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-anchor
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "anchor") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }  # two publishers would race for the same period
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "anchor") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "anchor") | nindent 8 }}
+        {{- include "clearhire.accessLabels" (list "postgres" "chain") | nindent 8 }}
+      annotations:
+        {{- include "clearhire.checksums" . | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      initContainers:
+        {{- include "clearhire.waitForDatabase" (dict "ctx" . "migrated" true) | nindent 8 }}
+      containers:
+        - name: anchor
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["clearhire", "anchor", "--loop"]
+          {{- include "clearhire.anchorEnv" . | nindent 10 }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.anchoring.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- if and .Values.chain.enabled .Values.chain.deployContract }}
+---
+# Deploys AuditAnchor on the fresh local chain, once. On a new Anvil chain the first contract from its
+# first development key always lands at 0x5FbDB2315678afecb367f032d93F642f64180aa3.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullname }}-deploy-contract
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "deploy-contract") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 0  # a retry would deploy a second contract at another address
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "deploy-contract") | nindent 8 }}
+        {{- include "clearhire.accessLabels" (list "postgres" "chain") | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: deploy
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["clearhire", "deploy-anchor"]
+          {{- include "clearhire.anchorEnv" . | nindent 10 }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            requests: { cpu: 20m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+{{- end }}

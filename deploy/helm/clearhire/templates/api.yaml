@@ -1,0 +1,172 @@
+{{- $fullname := include "clearhire.fullname" . }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-files
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "files") | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep  # uploaded CVs outlive an uninstall; delete the claim on purpose
+spec:
+  accessModes: [{{ .Values.files.accessMode }}]
+  {{- with .Values.files.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.files.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "api") | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "api") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "api") | nindent 4 }}
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "api") | nindent 8 }}
+        clearhire.io/files: "true"
+        {{- include "clearhire.accessLabels" (list "postgres" "redis" "llm" "chain") | nindent 8 }}
+      annotations:
+        {{- include "clearhire.checksums" . | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      {{- include "clearhire.filesAffinity" . | nindent 6 }}
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        {{- include "clearhire.waitForDatabase" (dict "ctx" . "migrated" true) | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "clearhire.backendEnv" . | nindent 10 }}
+          ports:
+            - name: http
+              containerPort: 8000
+          # loading the embedding model takes a while on a cold start
+          startupProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /api/ready, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          lifecycle:
+            preStop:  # let the Gateway drop this pod from its endpoints before connections stop
+              sleep: { seconds: 5 }
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "clearhire.filesMounts" . | nindent 12 }}
+      volumes:
+        {{- include "clearhire.filesVolume" . | nindent 8 }}
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "api") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $fullname }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.api.autoscaling.targetCPU }} }
+{{- end }}
+{{- with .Values.api.pdb }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" $ "component" "api") | nindent 4 }}
+spec:
+  minAvailable: {{ .minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" $ "component" "api") | nindent 6 }}
+{{- end }}
+---
+# The background worker: parses CVs, embeds and matches them, and publishes events for the bot.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-worker
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "worker") | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "worker") | nindent 8 }}
+        clearhire.io/files: "true"
+        {{- include "clearhire.accessLabels" (list "postgres" "redis" "llm" "chain") | nindent 8 }}
+      annotations:
+        {{- include "clearhire.checksums" . | nindent 8 }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 10001) | nindent 6 }}
+      {{- include "clearhire.filesAffinity" . | nindent 6 }}
+      terminationGracePeriodSeconds: 60  # a CV being parsed gets to finish
+      initContainers:
+        {{- include "clearhire.waitForDatabase" (dict "ctx" . "migrated" true) | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "clearhire.image" (dict "ctx" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["taskiq", "worker", "clearhire.tasks:broker", "--workers", "1"]
+          {{- include "clearhire.backendEnv" . | nindent 10 }}
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "clearhire.filesMounts" . | nindent 12 }}
+      volumes:
+        {{- include "clearhire.filesVolume" . | nindent 8 }}

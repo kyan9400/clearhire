@@ -200,9 +200,52 @@ def cmd_anchor(args: argparse.Namespace) -> int:
             asyncio.run(once(False))
         except ChainError as exc:
             print(f"anchoring failed, retrying next period: {exc}", file=sys.stderr)
+        except Exception as exc:  # the chain or the database is not there yet, or no contract at the address
+            print(f"anchoring failed, retrying next period: {type(exc).__name__}: {exc}", file=sys.stderr)
         now = datetime.now(UTC)
         wake = period_start(period_of(now, seconds) + 1, seconds).timestamp() + 60
         time.sleep(max(30.0, wake - now.timestamp()))
+
+
+def cmd_wait_db(args: argparse.Namespace) -> int:
+    """Wait for the database to answer, and with --migrated for its schema to be current.
+
+    Kubernetes init containers run this, so the API and the worker start only on a migrated database.
+    """
+    import asyncio
+    import time
+
+    from clearhire.db import schema
+    from clearhire.db.session import engine, sessions
+
+    async def go() -> int:
+        deadline, last = time.monotonic() + args.timeout, ""
+        while True:
+            try:
+                async with sessions()() as session:
+                    done = await schema.applied(session)
+                if not args.migrated or schema.is_current(done):
+                    print("database ready" + (f" at {', '.join(sorted(done))}" if args.migrated else ""))
+                    return 0
+                need = sorted(schema.heads())
+                state = f"waiting for migrations: at {sorted(done) or 'nothing'}, need {need}"
+            except Exception as exc:  # not up yet, or not resolvable yet
+                state = f"waiting for the database: {type(exc).__name__}"
+            if state != last:
+                print(state, file=sys.stderr)
+                last = state
+            if time.monotonic() > deadline:
+                print("gave up", file=sys.stderr)
+                return 1
+            await asyncio.sleep(2)
+
+    async def run() -> int:
+        try:
+            return await go()
+        finally:
+            await engine().dispose()
+
+    return asyncio.run(run())
 
 
 def cmd_anchor_fixture(args: argparse.Namespace) -> int:
@@ -266,6 +309,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--loop", action="store_true", help="keep anchoring every finished period")
     p.set_defaults(func=cmd_anchor)
+
+    p = sub.add_parser("wait-db", help="wait for the database (Kubernetes init containers run this)")
+    p.add_argument("--migrated", action="store_true", help="also wait until the schema is current")
+    p.add_argument("--timeout", type=float, default=600, help="seconds before giving up")
+    p.set_defaults(func=cmd_wait_db)
 
     p = sub.add_parser("anchor-fixture", help="write the Merkle fixture the contract test replays")
     p.add_argument("--out", default="../contracts/test/fixtures/merkle.json")

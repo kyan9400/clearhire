@@ -1,0 +1,24 @@
+Clearhire {{ .Chart.AppVersion }} is installing in {{ .Release.Namespace }}.
+
+  Careers site:      {{ include "clearhire.careersUrl" . }}
+  Recruiter console: {{ include "clearhire.consoleUrl" . }}
+
+{{- if not (or .Values.gateway.enabled .Values.ingress.enabled) }}
+Neither gateway.enabled nor ingress.enabled is set: the sites are reachable only inside the cluster
+(kubectl port-forward svc/{{ include "clearhire.fullname" . }}-portal 3100).
+
+{{ end -}}
+Watch it come up (the API waits for the migration job, then loads its embedding model):
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+{{- if .Values.seed.enabled }}
+
+The demo data loads after install (staff accounts recruiter@ / manager@ / admin@clearhire.demo):
+  kubectl -n {{ .Release.Namespace }} logs -f job/{{ include "clearhire.fullname" . }}-seed
+{{- else }}
+
+Add the first staff account:
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ include "clearhire.fullname" . }}-api -- clearhire create-user you@example.com "Your Name" --role admin
+{{- end }}
+
+Check it end to end:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

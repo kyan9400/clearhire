@@ -1,0 +1,75 @@
+{{- if .Values.redis.enabled }}
+{{- $fullname := include "clearhire.fullname" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-redis
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "redis") | nindent 4 }}
+spec:
+  selector:
+    {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "redis") | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+# The job queue, the event stream the bot reads, and the bot's chat links: append-only persistence.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-redis
+  labels:
+    {{- include "clearhire.labels" (dict "ctx" . "component" "redis") | nindent 4 }}
+spec:
+  serviceName: {{ $fullname }}-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "clearhire.selectorLabels" (dict "ctx" . "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "clearhire.labels" (dict "ctx" . "component" "redis") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "clearhire.podDefaults" . | nindent 6 }}
+      {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 999) | nindent 6 }}
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          args: ["--save", "", "--appendonly", "yes", "--maxmemory", "256mb", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "clearhire.secretName" . }}, key: redis-password } }
+            - name: REDISCLI_AUTH  # redis-cli in the probes reads it
+              valueFrom: { secretKeyRef: { name: {{ include "clearhire.secretName" . }}, key: redis-password } }
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec: { command: ["sh", "-c", "redis-cli ping | grep -q PONG"] }
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["sh", "-c", "redis-cli ping | grep -q PONG"] }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          {{- include "clearhire.containerSecurity" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.redis.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage }}
+{{- end }}

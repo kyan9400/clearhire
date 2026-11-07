@@ -1,0 +1,43 @@
+# The kind cluster in CI (.github/workflows/k8s.yml): images loaded straight into the node, Envoy
+# Gateway in front, the demo data, and anchoring on a local chain, all on one small node.
+image:
+  registry: ""
+  tag: ci
+  pullPolicy: Never
+hosts:
+  careers: careers.clearhire.test
+  console: console.clearhire.test
+  scheme: http
+config:
+  demoReadOnly: true
+seed:
+  enabled: true
+secrets:
+  # Anvil's first development key: publicly known, only ever used on a local chain
+  anchorPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+chain:
+  enabled: true
+  deployContract: true
+anchoring:
+  enabled: true
+  contract: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+gateway:
+  enabled: true
+  create: true
+  className: eg
+networkPolicy:
+  enabled: true
+  gatewayNamespace: envoy-gateway-system
+api:
+  autoscaling: { enabled: false, minReplicas: 1, maxReplicas: 2, targetCPU: 70 }
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 768Mi }
+    limits: { memory: 2Gi }
+worker:
+  resources:
+    requests: { cpu: 100m, memory: 768Mi }
+    limits: { memory: 2Gi }
+portal:
+  autoscaling: { enabled: false, minReplicas: 1, maxReplicas: 2, targetCPU: 70 }
+  replicas: 2
