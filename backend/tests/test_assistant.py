@@ -218,3 +218,12 @@ async def test_skills_named_in_a_question_are_looked_up_exactly(
     assert answer.grounded
     lookups = [m["content"] for m in model.requests[0] if m["role"] == "tool"][1]
     assert "Смирнова" not in lookups and "PostgreSQL" in lookups
+
+
+def test_an_opening_verdict_stands_on_the_cited_sentences_after_it(context: MatchContext) -> None:
+    requirement = next(iter(context.grounding.sources))
+    assert check(f"Нет, опыта с Redis нет. Навык не найден [{requirement}].", context)[0]
+    assert not check("Yes, they do.", context)[0]  # nothing after it cites anything
+    assert not check(f"Probably a strong engineer. Knows Python [{requirement}].", context)[
+        0
+    ]  # not a verdict

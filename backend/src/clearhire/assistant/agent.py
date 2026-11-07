@@ -26,6 +26,7 @@ from clearhire.skills import Taxonomy
 
 MAX_ROUNDS = 4
 _QUOTE = re.compile(r"«([^»]{3,300})»|\"([^\"]{3,300})\"")
+_VERDICT = re.compile(r"^\W*(?:yes|no|да|нет)\b", re.IGNORECASE)
 
 SYSTEM = """You are a recruiting assistant answering a recruiter's question about one candidate for one \
 vacancy. Below is the match overview: each requirement [R#] with the matcher's verdict. The overview covers only the vacancy's requirements, not the whole CV: something missing from it may still be in the CV.
@@ -117,7 +118,16 @@ def check(text: str, context: MatchContext) -> tuple[bool, list[dict[str, Any]]]
         r"\b(?:does not|doesn't|no mention|not mention|not say|нет\s+упоминан|не\s+указ|не\s+упомина|не\s+говорит|нет\s+данных)",
         re.I,
     )
-    grounded = all(any(r in valid for r in REF.findall(s)) or says_nothing.search(s) for s in sentences)
+    cited = [any(r in valid for r in REF.findall(s)) for s in sentences]
+
+    def supported(index: int, sentence: str) -> bool:
+        if cited[index] or says_nothing.search(sentence):
+            return True
+        # a short opening verdict ("Yes, it does." / "Нет.") stands on the cited sentences after it
+        verdict = index == 0 and _VERDICT.match(sentence) is not None and len(sentence.split()) <= 15
+        return verdict and any(cited[1:])
+
+    grounded = all(supported(i, s) for i, s in enumerate(sentences))
     quotes = [
         {"text": q, "found": context.grounding.quote_found(q)}
         for pair in _QUOTE.findall(text)
