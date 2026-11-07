@@ -77,8 +77,13 @@ token=$(console -X POST http://127.0.0.1:18080/api/auth/login -H 'Content-Type: 
   -d '{"email":"recruiter@clearhire.demo","password":"clearhire-demo"}' | jq -r .access_token)
 [ -n "$token" ] && [ "$token" != null ] || fail "recruiter login"
 auth=(-H "Authorization: Bearer $token")
-candidates=$(console "${auth[@]}" "http://127.0.0.1:18080/api/candidates?limit=1" | jq '.total // length')
-pass "console: a recruiter signs in; the API holds $candidates candidates"
+candidates=0
+for offset in 0 200; do  # the list is paged, at most 200 at a time
+  page=$(console "${auth[@]}" "http://127.0.0.1:18080/api/candidates?limit=200&offset=$offset" | jq length)
+  candidates=$((candidates + page))
+done
+[ "$candidates" = 312 ] || fail "the seeded pool should hold 312 candidates, the API lists $candidates"
+pass "console: a recruiter signs in and sees all 312 seeded candidates"
 console "${auth[@]}" http://127.0.0.1:18080/api/audit/verify | jq -e .valid >/dev/null || fail "audit log hash chain"
 pass "console: the audit log's hash chain verifies"
 

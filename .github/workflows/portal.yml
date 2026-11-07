@@ -1,6 +1,7 @@
 name: portal
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ["portal/**", "api/openapi.json", ".github/workflows/portal.yml"]

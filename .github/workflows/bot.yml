@@ -1,6 +1,7 @@
 name: bot
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ["bot/**", "api/openapi.json", ".github/workflows/bot.yml"]
