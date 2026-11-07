@@ -112,12 +112,14 @@ docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm --no-deps 
   clearhire seed --dataset datasets/synthetic
 ```
 
-On Kubernetes:
+On Kubernetes, from the published chart (its images are on GitHub Container Registry):
 
 ```bash
-helm install clearhire deploy/helm/clearhire -n clearhire --create-namespace \
+helm install clearhire oci://ghcr.io/kyan9400/charts/clearhire --version 0.1.0 -n clearhire --create-namespace \
   --set hosts.careers=careers.example.com --set hosts.console=console.example.com
 ```
+
+or from a checkout, with `deploy/helm/clearhire` in place of the `oci://` address.
 
 The chart runs migrations as a Job per release, and the pods wait for them. Every pod runs non-root on
 a read-only filesystem, NetworkPolicies allow only the connections each service needs, and the LLM,
