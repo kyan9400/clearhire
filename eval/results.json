@@ -4,26 +4,24 @@
     "candidates": 312,
     "vacancies": 39,
     "embedding_model": "intfloat/multilingual-e5-small",
-    "ocr": false,
+    "ocr": true,
     "reference_date": "2026-10-01",
-    "read": 279,
-    "skipped": 33,
-    "skipped_reasons": [
-      "the PDF is a scan and OCR is not available"
-    ]
+    "read": 312,
+    "skipped": 0,
+    "skipped_reasons": []
   },
   "extraction": {
     "all": {
-      "cvs": 279,
+      "cvs": 312,
       "skills": {
-        "precision": 0.9976,
-        "recall": 0.9993,
-        "f1": 0.9984
+        "precision": 0.9975,
+        "recall": 0.9966,
+        "f1": 0.997
       },
-      "experience_months_mae": 0.4,
-      "experience_exact": 0.8853,
-      "skill_months_mae": 0.7,
-      "language_level_accuracy": 1.0,
+      "experience_months_mae": 0.38,
+      "experience_exact": 0.8942,
+      "skill_months_mae": 0.9,
+      "language_level_accuracy": 0.993,
       "degree_accuracy": 1.0
     },
     "format:docx": {
@@ -52,30 +50,43 @@
       "language_level_accuracy": 1.0,
       "degree_accuracy": 1.0
     },
-    "language:en": {
-      "cvs": 113,
+    "format:scan": {
+      "cvs": 33,
       "skills": {
-        "precision": 0.9967,
-        "recall": 0.9983,
-        "f1": 0.9975
+        "precision": 0.9969,
+        "recall": 0.9728,
+        "f1": 0.9847
       },
-      "experience_months_mae": 0.35,
-      "experience_exact": 0.9204,
-      "skill_months_mae": 0.5,
+      "experience_months_mae": 0.24,
+      "experience_exact": 0.9697,
+      "skill_months_mae": 2.62,
+      "language_level_accuracy": 0.9322,
+      "degree_accuracy": 1.0
+    },
+    "language:en": {
+      "cvs": 125,
+      "skills": {
+        "precision": 0.9962,
+        "recall": 0.9985,
+        "f1": 0.9973
+      },
+      "experience_months_mae": 0.31,
+      "experience_exact": 0.928,
+      "skill_months_mae": 0.55,
       "language_level_accuracy": 1.0,
       "degree_accuracy": 1.0
     },
     "language:ru": {
-      "cvs": 166,
+      "cvs": 187,
       "skills": {
-        "precision": 0.9982,
-        "recall": 1.0,
-        "f1": 0.9991
+        "precision": 0.9984,
+        "recall": 0.9953,
+        "f1": 0.9968
       },
-      "experience_months_mae": 0.44,
-      "experience_exact": 0.8614,
-      "skill_months_mae": 0.83,
-      "language_level_accuracy": 1.0,
+      "experience_months_mae": 0.43,
+      "experience_exact": 0.8717,
+      "skill_months_mae": 1.14,
+      "language_level_accuracy": 0.9883,
       "degree_accuracy": 1.0
     }
   },
@@ -97,38 +108,38 @@
   "ranking": {
     "methods": {
       "clearhire": {
-        "ndcg@10": 0.9678,
-        "p@5": 0.8974,
-        "recall@20": 0.8905
+        "ndcg@10": 0.9719,
+        "p@5": 0.9026,
+        "recall@20": 0.8584
       },
       "clearhire, true requirements": {
-        "ndcg@10": 0.9678,
-        "p@5": 0.8974,
-        "recall@20": 0.8905
+        "ndcg@10": 0.9719,
+        "p@5": 0.9026,
+        "recall@20": 0.8584
       },
       "embeddings only": {
-        "ndcg@10": 0.5996,
-        "p@5": 0.6256,
-        "recall@20": 0.4226
+        "ndcg@10": 0.603,
+        "p@5": 0.641,
+        "recall@20": 0.4105
       },
       "keyword (BM25)": {
-        "ndcg@10": 0.6566,
+        "ndcg@10": 0.6582,
         "p@5": 0.6462,
-        "recall@20": 0.5559
+        "recall@20": 0.5181
       },
       "perfect ranking (upper bound)": {
         "ndcg@10": 1.0,
         "p@5": 0.9179,
-        "recall@20": 0.9061
+        "recall@20": 0.8821
       }
     },
     "qualified": {
-      "precision": 0.9966,
-      "recall": 0.9983,
-      "f1": 0.9974
+      "precision": 0.9969,
+      "recall": 0.9847,
+      "f1": 0.9908
     },
-    "pairs": 10881,
-    "rank_pool_ms": 27.7
+    "pairs": 12168,
+    "rank_pool_ms": 37.4
   },
   "fairness": {
     "blind": {
@@ -180,9 +191,9 @@
     "candidates": 54
   },
   "speed": {
-    "read_and_index_cv_ms_p50": 188.0,
-    "read_and_index_scan_ms_p50": null,
-    "rank_pool_ms": 27.7,
-    "pool_size": 279
+    "read_and_index_cv_ms_p50": 261.9,
+    "read_and_index_scan_ms_p50": 1953.7,
+    "rank_pool_ms": 37.4,
+    "pool_size": 312
   }
 }

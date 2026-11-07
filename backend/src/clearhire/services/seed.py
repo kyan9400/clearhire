@@ -73,7 +73,7 @@ async def seed(session: AsyncSession, services: Services, root: Path, *, passwor
     for truth in truth_vacancies:
         requirements = parse_requirements(truth.text, services.matcher.taxonomy)
         description = "\n".join(truth.text.split("\n")[2:]).strip()  # without the title and company lines
-        vacancy = Vacancy(title=truth.title, company=truth.company, location="Moscow / remote", remote=True,
+        vacancy = Vacancy(title=truth.title, company=truth.company, location="Moscow", remote=True,
                           language=truth.language, description=description,
                           requirements=[r.to_dict() for r in requirements], status=VacancyStatus.OPEN,
                           created_by=recruiter.id)  # fmt: skip
