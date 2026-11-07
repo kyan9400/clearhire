@@ -183,7 +183,18 @@ affinity:
 
 {{- define "clearhire.checksums" -}}
 checksum/config: {{ include (print .Template.BasePath "/config.yaml") . | sha256sum }}
-checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+checksum/secret: {{ include "clearhire.secretInputs" . }}
+{{- end -}}
+
+{{- /*
+What the Secret is made from, hashed: the values a person sets, not the rendered Secret. Each include of
+secret.yaml renders it again, and on install every render draws new random passwords, so a hash of the
+output never matches the Secret actually stored; the first upgrade then changed every checksum and
+restarted every pod, the database included. Generated values never change after install (they are read
+back), so they need no place in the hash.
+*/}}
+{{- define "clearhire.secretInputs" -}}
+{{- dict "secrets" .Values.secrets "postgres" (pick .Values.postgres "password" "externalUrl") "redis" (pick .Values.redis "password" "externalUrl") | toJson | sha256sum }}
 {{- end -}}
 
 {{- define "clearhire.llmEnv" -}}

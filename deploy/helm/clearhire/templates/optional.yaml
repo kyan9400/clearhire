@@ -24,7 +24,7 @@ spec:
         {{- include "clearhire.labels" (dict "ctx" . "component" "bot") | nindent 8 }}
         {{- include "clearhire.accessLabels" (list "api" "redis") | nindent 8 }}
       annotations:
-        checksum/secret: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/secret: {{ include "clearhire.secretInputs" . }}
     spec:
       {{- include "clearhire.podDefaults" . | nindent 6 }}
       {{- include "clearhire.podSecurity" (dict "ctx" . "uid" 1000) | nindent 6 }}

@@ -102,6 +102,8 @@ step "helm test: services answer in-cluster, NetworkPolicies refuse non-clients"
 h test clearhire -n $NS --logs --timeout 3m
 
 step "a rolling upgrade under load drops no requests"
+data_pods() { k -n $NS get pod clearhire-postgres-0 clearhire-redis-0 -o jsonpath='{.items[*].metadata.uid}'; }
+data_before=$(data_pods)
 total=0 failed=0
 (
   while :; do
@@ -119,7 +121,8 @@ total=$(wc -l < /tmp/clearhire-e2e-codes)
 failed=$(grep -cv '^200$' /tmp/clearhire-e2e-codes || true)
 k -n $NS get jobs
 [ "$(k -n $NS get job clearhire-migrate-2 -o jsonpath='{.status.succeeded}')" = 1 ] || fail "revision 2's migration job"
+[ "$(data_pods)" = "$data_before" ] || fail "an app config change restarted PostgreSQL or Redis"
 [ "$failed" = 0 ] || fail "$failed of $total requests failed during the upgrade: $(sort /tmp/clearhire-e2e-codes | uniq -c | tr '\n' ' ')"
-pass "the API and worker rolled to a new config (migration job 2 ran first); $total requests during it, none failed"
+pass "the API and worker rolled to a new config (migration job 2 ran first) and the data stores stayed up; $total requests during it, none failed"
 
 printf '\n\033[32mall end-to-end checks passed\033[0m\n'
