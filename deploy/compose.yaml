@@ -28,6 +28,7 @@ x-backend: &backend
     CLEARHIRE_LLM_URL: ${LLM_URL-http://llm:11434/v1}
     CLEARHIRE_LLM_MODEL: ${LLM_MODEL:-qwen3.5:9b}
     CLEARHIRE_LLM_API_KEY: ${LLM_API_KEY:-}
+    CLEARHIRE_BOT_SECRET: ${BOT_SECRET:-}
   volumes:
     - files:/data/files
   depends_on:
@@ -58,7 +59,10 @@ services:
     image: redis:7.4-alpine
     restart: unless-stopped
     labels: *labels
-    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb"]
+    # append-only persistence: the job queue and the bot's chat-to-application links survive restarts
+    command: ["redis-server", "--save", "", "--appendonly", "yes", "--maxmemory", "256mb"]
+    volumes:
+      - redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -127,8 +131,32 @@ services:
       CLEARHIRE_API_URL: http://api:8000
       CLEARHIRE_PUBLIC_URL: https://${CAREERS_HOST}
       CLEARHIRE_RETENTION_DAYS: ${RETENTION_DAYS:-365}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     depends_on:
       api: { condition: service_healthy }
+    networks: [internal]
+
+  # The Telegram bot: on with COMPOSE_PROFILES=telegram and a token from @BotFather in deploy/.env.
+  # It long-polls Telegram, so it needs no public port.
+  bot:
+    image: clearhire-bot:${CLEARHIRE_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: bot/Dockerfile
+    profiles: [telegram]
+    restart: unless-stopped
+    labels: *labels
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      CLEARHIRE_API_URL: http://api:8000
+      CLEARHIRE_BOT_SECRET: ${BOT_SECRET:-}
+      REDIS_URL: redis://redis:6379/0
+      CAREERS_URL: https://${CAREERS_HOST}
+      CONSOLE_URL: https://${CONSOLE_HOST}
+      RECRUITER_CHAT_IDS: ${RECRUITER_CHAT_IDS:-}
+    depends_on:
+      api: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [internal]
 
   caddy:
@@ -155,6 +183,7 @@ volumes:
   postgres:
   files:
   llm:
+  redis:
   caddy_data:
   caddy_config:
 

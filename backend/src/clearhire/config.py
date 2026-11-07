@@ -39,7 +39,10 @@ class Settings(BaseSettings):
     llm_timeout: float = Field(default=120, gt=0)
     llm_calls_per_hour: int = Field(default=60, ge=1)  # per staff user
 
-    @field_validator("llm_url", mode="before")
+    # the Telegram bot proves itself with this shared secret (header X-Clearhire-Bot)
+    bot_secret: SecretStr | None = None
+
+    @field_validator("llm_url", "bot_secret", mode="before")
     @classmethod
     def _empty_is_off(cls, value: object) -> object:
         return value or None

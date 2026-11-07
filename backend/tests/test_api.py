@@ -379,6 +379,70 @@ async def test_assistant_summaries_and_questions(api: httpx.AsyncClient) -> None
     assert left == 0
 
 
+async def test_the_telegram_bot_is_limited_per_user_and_recorded_as_the_source(
+    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pydantic import SecretStr
+
+    services = api._transport.app.state.services  # type: ignore[attr-defined]
+    monkeypatch.setattr(services.settings, "bot_secret", SecretStr("s" * 40))
+    recruiter = await login(api, "recruiter")
+    created = await vacancy(api, recruiter)
+
+    async def apply(user: str, n: int, secret: str = "s" * 40) -> int:
+        response = await api.post(
+            f"/api/public/vacancies/{created['id']}/apply",
+            data={
+                "full_name": "Bot User",
+                "email": f"u{user}{n}@example.com",
+                "consent": "true",
+                "telegram": "bot_user",
+            },
+            files={"file": ("cv.txt", b"Python developer\nPython, SQL", "text/plain")},
+            headers={"X-Clearhire-Bot": secret, "X-Telegram-User": user},
+        )
+        return response.status_code
+
+    assert [await apply("111", n) for n in range(11)][-1] == 429  # the 11th from one Telegram user
+    assert await apply("222", 0) == 201  # another Telegram user is not affected
+    candidates = (await api.get("/api/candidates", headers=recruiter)).json()
+    assert {c["source"] for c in candidates} == {"telegram"}
+    # a wrong secret is an ordinary caller: counted by address, and recorded as the careers site
+    assert await apply("333", 0, secret="wrong") == 201
+    sources = [c["source"] for c in (await api.get("/api/candidates", headers=recruiter)).json()]
+    assert sources.count("portal") == 1
+
+
+async def test_reading_a_cv_announces_the_result_for_each_application(
+    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from clearhire.db.models import Document
+
+    published: list[tuple[str, dict[str, object]]] = []
+
+    class Recorder:
+        def __init__(self, url: str | None) -> None: ...
+
+        async def publish(self, kind: str, **payload: object) -> None:
+            published.append((kind, payload))
+
+        async def close(self) -> None: ...
+
+    monkeypatch.setattr(tasks, "Events", Recorder)
+    recruiter = await login(api, "recruiter")
+    created = await vacancy(api, recruiter)
+    candidate = await upload(api, recruiter, str(created["id"]))
+    services = api._transport.app.state.services  # type: ignore[attr-defined]
+    monkeypatch.setattr(services.settings, "redis_url", "redis://unused")
+    async with db_session.sessions()() as session:
+        document = (await session.execute(text("select id from documents"))).scalar_one()
+        await tasks.announce(session, services.settings, await session.get(Document, document))
+    ((kind, payload),) = published
+    assert kind == "application.scored" and payload["title"] == "Senior Python Developer"
+    assert payload["must_total"] == 6 and payload["application"] == candidate["applications"][0]["id"]  # type: ignore[index]
+    assert "Смирнова" not in str(payload)
+
+
 async def test_erasure_removes_the_candidate_and_their_file(api: httpx.AsyncClient, tmp_path: Path) -> None:
     recruiter = await login(api, "recruiter")
     created = await vacancy(api, recruiter)

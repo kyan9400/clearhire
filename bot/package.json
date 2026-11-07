@@ -1,0 +1,40 @@
+{
+  "name": "clearhire-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Clearhire's Telegram bot: candidates browse roles, check a CV, apply and follow their status; recruiters get new applications.",
+  "packageManager": "npm@11.19.1",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "tsc -p tsconfig.build.json && node --env-file-if-exists=.env dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "api:types": "npx -y -p openapi-typescript@7.13.0 -p typescript@5.9.3 openapi-typescript ../api/openapi.json -o src/api/schema.d.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.8",
+    "@nestjs/core": "11.2.8",
+    "grammy": "1.46.0",
+    "ioredis": "5.11.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.2.8",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
+    "jest": "30.5.2",
+    "prettier": "3.9.10",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/test"],
+    "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": "tsconfig.json" }] }
+  }
+}

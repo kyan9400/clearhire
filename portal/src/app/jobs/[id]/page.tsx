@@ -11,6 +11,12 @@ import styles from './page.module.css';
 
 export const dynamic = 'force-dynamic';
 
+/** Read at request time, so the same image works with or without a bot. */
+function telegramBot(): string | undefined {
+  const name = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, '');
+  return name && /^[A-Za-z0-9_]{5,32}$/.test(name) ? name : undefined;
+}
+
 type Props = { params: Promise<{ id: string }> };
 
 const load = cache((id: string) => api.vacancy(id)); // one API call for metadata and the page
@@ -63,7 +69,12 @@ export default async function JobPage({ params }: Props) {
         </p>
       </header>
 
-      <JobWorkspace vacancyId={vacancy.id} title={vacancy.title} requirements={vacancy.requirements}>
+      <JobWorkspace
+        vacancyId={vacancy.id}
+        title={vacancy.title}
+        requirements={vacancy.requirements}
+        telegramBot={telegramBot()}
+      >
         <div className={styles.description} lang={vacancy.language}>
           {blocks.map((block, i) =>
             block.kind === 'heading' ? (

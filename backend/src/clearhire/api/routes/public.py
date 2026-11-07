@@ -4,6 +4,7 @@ private status page where candidates see what was read from their CV and can era
 from __future__ import annotations
 
 import asyncio
+import hmac
 import time
 import uuid
 from collections import defaultdict, deque
@@ -95,7 +96,18 @@ def _public(vacancy: Vacancy) -> PublicVacancy:
                          ])  # fmt: skip
 
 
-def _ip(request: Request) -> str:
+def _from_bot(request: Request, services: Services) -> bool:
+    """A request from the Telegram bot: it proves itself with the shared secret."""
+    secret = services.settings.bot_secret
+    given = request.headers.get("x-clearhire-bot", "")
+    return bool(secret and given and hmac.compare_digest(given, secret.get_secret_value()))
+
+
+def _caller(request: Request, services: Services) -> str:
+    """Who the rate limits count: the client's address, or for the bot the Telegram user it acts for
+    (otherwise every bot user would share the bot's one address and its limit)."""
+    if _from_bot(request, services):
+        return "tg:" + request.headers.get("x-telegram-user", "unknown")[:32]
     return request.client.host if request.client else "unknown"
 
 
@@ -142,7 +154,7 @@ async def precheck(
 ) -> PrecheckOut:
     """Check a CV against the vacancy before applying. The file is read in memory and nothing is kept, so
     no consent is needed; the same matcher the recruiter uses gives the answer."""
-    precheck_limiter.check(_ip(request))
+    precheck_limiter.check(_caller(request, services))
     vacancy = await _open(session, vacancy_id)
     limit = services.settings.max_upload_mb * 1024 * 1024
     data = await file.read(limit + 1)
@@ -177,7 +189,8 @@ async def apply(
     telegram: Annotated[str | None, Form(max_length=64)] = None,
 ) -> ApplyOut:
     """Apply with a CV. The answer carries a private token for the status page; keep it."""
-    limiter.check(_ip(request))
+    limiter.check(_caller(request, services))
+    source = Source.TELEGRAM if _from_bot(request, services) else Source.PORTAL
     vacancy = await _open(session, vacancy_id)
     try:
         address = str(_email.validate_python(email))
@@ -186,13 +199,13 @@ async def apply(
     data = await file.read(services.settings.max_upload_mb * 1024 * 1024 + 1)
     try:
         candidate, document = await add_candidate(
-            session, services, data, file.filename or "cv", source=Source.PORTAL, consent=consent,
+            session, services, data, file.filename or "cv", source=source, consent=consent,
             full_name=full_name, email=address, telegram=(telegram or "").lstrip("@") or None,
             actor=("candidate", None),
         )  # fmt: skip
     except UploadRejected as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    application = Application(candidate_id=candidate.id, vacancy_id=vacancy.id, source=Source.PORTAL,
+    application = Application(candidate_id=candidate.id, vacancy_id=vacancy.id, source=source,
                               status_token=status_token())  # fmt: skip
     session.add(application)
     await session.flush()

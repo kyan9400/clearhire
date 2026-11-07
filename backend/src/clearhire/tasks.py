@@ -12,10 +12,14 @@ import logging
 import uuid
 
 from fastapi import BackgroundTasks
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import AsyncBroker, InMemoryBroker
 
 from clearhire.config import Settings, get_settings
+from clearhire.db.models import Application, Document, DocumentStatus, Match, Vacancy
 from clearhire.db.session import sessions
+from clearhire.events import Events
 from clearhire.services.pipeline import Services, process_document
 
 log = logging.getLogger(__name__)
@@ -62,12 +66,37 @@ def build_services(settings: Settings | None = None) -> Services:
 
 
 async def run_parse(document_id: uuid.UUID, services: Services | None = None) -> None:
+    services = services or build_services()
     async with sessions()() as session:
         try:
-            await process_document(session, services or build_services(), document_id)
+            document = await process_document(session, services, document_id)
         except Exception:  # keep the worker alive; the failure is logged with the document id
             log.exception("reading CV %s failed", document_id)
             raise
+        await announce(session, services.settings, document)
+
+
+async def announce(session: AsyncSession, settings: Settings, document: Document) -> None:
+    """Tell other services (the Telegram bot) how the CV went for each application: matched, with the
+    must-haves met, or unreadable. No names: the event bus carries ids and counts."""
+    if not settings.redis_url:
+        return
+    rows = (await session.execute(
+        select(Application.id, Application.source, Vacancy.id, Vacancy.title, Match.must_met, Match.must_total)
+        .join(Vacancy, Vacancy.id == Application.vacancy_id)
+        .outerjoin(Match, (Match.candidate_id == Application.candidate_id) & (Match.vacancy_id == Application.vacancy_id))
+        .where(Application.candidate_id == document.candidate_id)
+    )).all()  # fmt: skip
+    events = Events(settings.redis_url)
+    try:
+        for application_id, source, vacancy_id, title, must_met, must_total in rows:
+            if document.status == DocumentStatus.PARSED:
+                await events.publish("application.scored", application=str(application_id), vacancy=str(vacancy_id),
+                                     title=title, source=source.value, must_met=must_met, must_total=must_total)  # fmt: skip
+            else:
+                await events.publish("application.cv_failed", application=str(application_id), title=title)
+    finally:
+        await events.close()
 
 
 @broker.task(task_name="clearhire.parse_cv")

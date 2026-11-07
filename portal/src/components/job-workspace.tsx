@@ -20,11 +20,14 @@ export function JobWorkspace({
   vacancyId,
   title,
   requirements,
+  telegramBot,
   children,
 }: {
   vacancyId: string;
   title: string;
   requirements: Requirement[];
+  /** The bot's username, when one is configured: candidates can apply there instead. */
+  telegramBot?: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -158,9 +161,21 @@ export function JobWorkspace({
           <hr className={styles.rule} />
 
           {!applyOpen ? (
-            <button className="btn primary block" type="button" onClick={() => setApplyOpen(true)}>
-              Apply for {title}
-            </button>
+            <>
+              <button className="btn primary block" type="button" onClick={() => setApplyOpen(true)}>
+                Apply for {title}
+              </button>
+              {telegramBot && (
+                <a
+                  className="btn block"
+                  href={`https://t.me/${telegramBot}?start=job_${vacancyId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Apply in Telegram
+                </a>
+              )}
+            </>
           ) : (
             <form action={apply} className={styles.form}>
               <label className="field">
