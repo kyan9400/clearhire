@@ -7,7 +7,7 @@ metadata:
   name: {{ $fullname }}-test-services
   labels:
     {{- include "clearhire.labels" (dict "ctx" . "component" "test") | nindent 4 }}
-    {{- include "clearhire.accessLabels" (list "api") | nindent 4 }}
+    {{- include "clearhire.accessLabels" (list "api" "portal" "console") | nindent 4 }}
   annotations:
     helm.sh/hook: test
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
@@ -68,6 +68,8 @@ spec:
           {{- end }}
           if wget -qO /dev/null -T 3 http://{{ $fullname }}-api:8000/api/health; then echo "the API is reachable from a pod that is not its client"; exit 1; fi
           echo "api: refused to a non-client"
+          if wget -qO /dev/null -T 3 http://{{ $fullname }}-portal:3100/how-we-hire; then echo "the portal is reachable from outside the Gateway"; exit 1; fi
+          echo "portal: refused to a pod that is not the Gateway"
       {{- include "clearhire.containerSecurity" . | nindent 6 }}
       resources:
         requests: { cpu: 10m, memory: 16Mi }

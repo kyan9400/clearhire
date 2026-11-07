@@ -16,7 +16,7 @@ spec:
       app.kubernetes.io/name: {{ include "clearhire.name" . }}
   policyTypes: [Ingress]
 ---
-{{- /* front ends: from the Gateway's proxies only */}}
+{{- /* front ends: from the Gateway's proxies, and the pods labelled as their clients (the helm test) */}}
 {{- range $component, $port := dict "portal" 3100 "console" 8080 }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -32,6 +32,9 @@ spec:
   ingress:
     - from:
         - {{- include "clearhire.gatewayPeer" $ | nindent 10 }}
+        - podSelector:
+            matchLabels:
+              clearhire.io/{{ $component }}-client: "true"
       ports:
         - port: {{ $port }}
 ---
