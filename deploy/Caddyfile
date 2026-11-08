@@ -54,3 +54,7 @@
 		file_server
 	}
 }
+
+# Other sites served from this host: one *.caddy file each in /etc/caddy/sites, mounted by the host's
+# own Compose override. None by default; a glob that matches nothing is fine.
+import /etc/caddy/sites/*.caddy
